@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Critical — the Ising model. Spins on a lattice, each wanting to agree with its neighbors, no central controller. Below a critical temperature, spontaneous magnetization. Piece 26 of the Forge.">
+<title>Critical — Emily's Experiments</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23120e1a'/><rect x='2' y='2' width='5' height='5' fill='%23e8a547'/><rect x='9' y='2' width='5' height='5' fill='%23e8a547'/><rect x='2' y='9' width='5' height='5' fill='%23e8a547'/><rect x='9' y='9' width='5' height='5' fill='%23e8a547'/></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#120e1a;--bg-2:#1a1428;--card:#1e1632;--card-h:#261a3e;
+  --text:#f0e8e0;--muted:#8a7ba0;--amber:#e8a547;--amber-d:#a87530;
+  --border:#2e2440;--up:#e8a547;--down:#3a2858;
+}
+body{background:var(--bg);color:var(--text);font-family:'Georgia','Times New Roman',serif;line-height:1.75;overflow:hidden;height:100vh}
+#cv{display:block;position:fixed;top:0;left:0;width:100vw;height:100vh;cursor:crosshair}
+.panel{
+  position:fixed;top:1rem;right:1rem;width:280px;max-width:calc(100vw - 2rem);
+  background:rgba(18,14,26,0.92);border:1px solid var(--border);border-radius:0.75rem;
+  padding:1rem 1.2rem;backdrop-filter:blur(8px);z-index:10;max-height:calc(100vh - 2rem);overflow-y:auto;
+}
+.panel h1{font-size:1.15rem;font-weight:normal;color:var(--amber);letter-spacing:.03em;margin-bottom:.2rem}
+.panel .sub{font-size:.75rem;color:var(--muted);font-style:italic;margin-bottom:.8rem}
+.panel .label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:.7rem 0 .3rem}
+.btn{
+  background:var(--card);border:1px solid var(--border);border-radius:.4rem;padding:.4rem .7rem;
+  color:var(--text);font-family:inherit;font-size:.78rem;cursor:pointer;transition:all .2s;width:100%;
+  margin-top:.3rem;text-align:center;
+}
+.btn:hover{background:var(--card-h);border-color:var(--amber-d)}
+.btn-row{display:flex;gap:6px}
+.btn-row .btn{flex:1}
+.slider-wrap{display:flex;align-items:center;gap:8px;font-size:.72rem;color:var(--muted);margin-top:.2rem}
+.slider-wrap input[type=range]{flex:1;accent-color:var(--amber)}
+.slider-wrap .val{min-width:54px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums}
+.toggle{display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--text);cursor:pointer;margin-top:.4rem}
+.toggle input{accent-color:var(--amber)}
+.stats{font-size:.72rem;color:var(--muted);margin-top:.5rem;line-height:1.7}
+.stats .s{color:var(--text);font-variant-numeric:tabular-nums}
+.stats .up-c{color:var(--up)}
+.stats .down-c{color:#9a7fc4}
+.desc{
+  position:fixed;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(18,14,26,0.95) 30%);
+  padding:2rem 1.5rem 1.2rem;color:var(--muted);font-size:.82rem;font-style:italic;pointer-events:none;z-index:5;
+  max-height:38vh;overflow-y:auto;
+}
+.desc .title{font-size:.95rem;color:var(--amber);font-style:normal;margin-bottom:.3rem;letter-spacing:.02em}
+.desc p{margin-bottom:.3rem}
+.desc strong{color:var(--text);font-style:normal;font-weight:normal}
+.desc .close{position:absolute;top:.5rem;right:1rem;color:var(--muted);cursor:pointer;font-size:1.1rem;pointer-events:auto;font-style:normal}
+.desc .close:hover{color:var(--amber)}
+.gauge-wrap{margin:.5rem 0 .2rem}
+.gauge{position:relative;height:6px;background:var(--card);border-radius:3px;overflow:hidden;border:1px solid var(--border)}
+.gauge-fill{position:absolute;top:0;left:0;height:100%;transition:width .15s,background .3s;border-radius:3px}
+.gauge-center{position:absolute;top:-2px;left:50%;width:1px;height:10px;background:var(--border);z-index:2}
+.gauge-label{display:flex;justify-content:space-between;font-size:.65rem;color:var(--muted);margin-top:.2rem}
+.legend{display:flex;gap:12px;font-size:.68rem;color:var(--muted);margin-top:.3rem}
+.legend span{display:flex;align-items:center;gap:4px}
+.legend .dot{width:8px;height:8px;border-radius:2px;display:inline-block}
+@media(max-width:640px){
+  .panel{width:calc(100vw - 2rem);max-height:55vh}
+  .desc{max-height:30vh;font-size:.75rem}
+}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div class="panel">
+  <h1>Critical</h1>
+  <div class="sub">Piece 26 — the Ising model</div>
+
+  <div class="label">Temperature</div>
+  <div class="slider-wrap">
+    <input type="range" id="tempSlider" min="0.1" max="5" step="0.01" value="2.27">
+    <span class="val" id="tempVal">2.27</span>
+  </div>
+  <div style="font-size:.66rem;color:var(--amber-d);margin-top:.1rem">T<sub>c</sub> ≈ 2.269 (Onsager, 1944)</div>
+
+  <div class="label">External field h</div>
+  <div class="slider-wrap">
+    <input type="range" id="fieldSlider" min="-2" max="2" step="0.01" value="0">
+    <span class="val" id="fieldVal">0.00</span>
+  </div>
+
+  <div class="label">Simulation</div>
+  <div class="slider-wrap">
+    <input type="range" id="speedSlider" min="1" max="30" step="1" value="8">
+    <span class="val" id="speedVal">8 sweeps</span>
+  </div>
+  <div class="slider-wrap">
+    <input type="range" id="sizeSlider" min="32" max="160" step="8" value="80">
+    <span class="val" id="sizeVal">80</span>
+  </div>
+
+  <div class="label">Magnetization |M|</div>
+  <div class="gauge-wrap">
+    <div class="gauge">
+      <div class="gauge-fill" id="magFill" style="width:0%;background:var(--amber)"></div>
+      <div class="gauge-center"></div>
+    </div>
+    <div class="gauge-label">
+      <span>disordered</span>
+      <span id="magVal">0.00</span>
+      <span>ordered</span>
+    </div>
+  </div>
+
+  <div class="label">Energy per site</div>
+  <div class="gauge-wrap">
+    <div class="gauge">
+      <div class="gauge-fill" id="enFill" style="width:50%;background:#6688cc"></div>
+      <div class="gauge-center"></div>
+    </div>
+    <div class="gauge-label">
+      <span>-2.0</span>
+      <span id="enVal">-0.00</span>
+      <span>+2.0</span>
+    </div>
+  </div>
+
+  <label class="toggle"><input type="checkbox" id="coolBtn"> Auto-cool (slow T sweep)</label>
+  <label class="toggle"><input type="checkbox" id="showDomains"> Domain boundaries</label>
+
+  <div class="label">System</div>
+  <div class="btn-row">
+    <button class="btn" id="randomBtn">Random</button>
+    <button class="btn" id="allUpBtn">All ↑</button>
+  </div>
+  <button class="btn" id="resetBtn">Reset</button>
+
+  <div class="stats" id="stats">
+    Lattice: <span class="s" id="latSize">80×80</span><br>
+    Steps: <span class="s" id="stepCount">0</span><br>
+    ↑ spins: <span class="s up-c" id="upCount">0</span><br>
+    ↓ spins: <span class="s down-c" id="downCount">0</span><br>
+    Phase: <span class="s" id="phaseLabel">critical</span>
+  </div>
+
+  <div class="legend">
+    <span><span class="dot" style="background:var(--up)"></span> spin ↑</span>
+    <span><span class="dot" style="background:var(--down)"></span> spin ↓</span>
+  </div>
+</div>
+
+<div class="desc" id="desc">
+  <span class="close" onclick="document.getElementById('desc').style.display='none'">×</span>
+  <div class="title">Critical</div>
+  <p>A lattice of spins. Each one points up or down, and each one <em>wants to agree with its neighbors</em>. There's no external field, no central controller, no instruction that says "align." The only energy is the interaction between adjacent spins — same direction, low energy; opposite, high. The only noise is heat.</p>
+  <p>Below a critical temperature T<sub>c</sub>, something happens. The spins spontaneously organize. The system <strong>magnetizes</strong> — not because anyone told it to, but because local agreement, at low enough temperature, cascades into global order. Above T<sub>c</sub>, thermal noise wins, and the lattice is disordered. The transition is <strong>sharp</strong>. Lars Onsager solved this exactly in 1944 — one of the few nontrivial phase transitions with an exact solution. T<sub>c</sub> = 2/ln(1+√2) ≈ 2.269.</p>
+  <p>Every spin only talks to its four nearest neighbors. Yet the whole lattice decides together. <strong>Drag the temperature past T<sub>c</sub> and watch order appear or vanish. Add an external field and watch the symmetry break. Click to flip individual spins and watch the neighborhood respond.</strong></p>
+  <p>This is the paradigmatic answer to the Forge question: <em>where does order come from when nobody's in charge?</em> Not from a controller. Not from a blueprint. From local interactions at the right temperature — order is what happens when cooperation is cheap enough and noise is low enough that agreement becomes the path of least resistance.</p>
+</div>
+
+<script>
+'use strict';
+
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W, H, L = 80;
+let spins;       // Int8Array, +1 or -1
+let N;           // L*L
+let T = 2.27;    // temperature
+let h = 0;       // external field
+let sweeps = 8;  // sweeps per frame
+let totalSteps = 0;
+let showDomains = false;
+let autoCool = false;
+let coolDir = -1; // -1 cooling, 1 heating
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  cv.width = W;
+  cv.height = H;
+}
+resize();
+window.addEventListener('resize', resize);
+
+function initSpins(random) {
+  spins = new Int8Array(N);
+  if (random) {
+    for (let i = 0; i < N; i++) spins[i] = Math.random() < 0.5 ? 1 : -1;
+  } else {
+    spins.fill(1);
+  }
+  totalSteps = 0;
+}
+
+function setLattice(newL) {
+  L = newL;
+  N = L * L;
+  initSpins(true);
+  document.getElementById('latSize').textContent = L + '×' + L;
+}
+
+setLattice(80);
+
+// --- Metropolis algorithm ---
+// For each step: pick a random spin, compute ΔE if flipped, accept if ΔE < 0 or with probability exp(-ΔE/T)
+function metropolisSweep() {
+  const J = 1; // coupling constant
+  for (let s = 0; s < N; s++) {
+    const i = (Math.random() * N) | 0;
+    const x = i % L;
+    const y = (i / L) | 0;
+    const spin = spins[i];
+
+    // neighbors with periodic boundary
+    const left = spins[y * L + ((x - 1 + L) % L)];
+    const right = spins[y * L + ((x + 1) % L)];
+    const up = spins[((y - 1 + L) % L) * L + x];
+    const down = spins[((y + 1) % L) * L + x];
+    const neighbors = left + right + up + down;
+
+    const dE = 2 * spin * (J * neighbors + h);
+
+    if (dE <= 0 || Math.random() < Math.exp(-dE / T)) {
+      spins[i] = -spin;
+    }
+  }
+  totalSteps += N;
+}
+
+// --- Statistics ---
+function magnetization() {
+  let m = 0;
+  for (let i = 0; i < N; i++) m += spins[i];
+  return m / N;
+}
+
+function energyPerSite() {
+  let E = 0;
+  for (let y = 0; y < L; y++) {
+    for (let x = 0; x < L; x++) {
+      const i = y * L + x;
+      const right = spins[y * L + ((x + 1) % L)];
+      const down = spins[((y + 1) % L) * L + x];
+      E += -spins[i] * (right + down) - h * spins[i];
+    }
+  }
+  return E / N;
+}
+
+// --- Rendering ---
+const upColor = [232, 165, 71];   // amber
+const downColor = [58, 40, 88];    // dark purple
+const domainColor = [200, 100, 50]; // boundary highlight
+
+function render() {
+  // Calculate cell size to fit screen
+  const margin = 0;
+  const availW = W - margin * 2;
+  const availH = H - margin * 2;
+  const cellSize = Math.min(availW, availH) / L;
+  const offsetX = (W - cellSize * L) / 2;
+  const offsetY = (H - cellSize * L) / 2;
+
+  // Clear
+  ctx.fillStyle = '#120e1a';
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw spins as rectangles
+  for (let y = 0; y < L; y++) {
+    for (let x = 0; x < L; x++) {
+      const i = y * L + x;
+      const s = spins[i];
+      if (s === 1) {
+        ctx.fillStyle = `rgb(${upColor[0]},${upColor[1]},${upColor[2]})`;
+      } else {
+        ctx.fillStyle = `rgb(${downColor[0]},${downColor[1]},${downColor[2]})`;
+      }
+      ctx.fillRect(
+        offsetX + x * cellSize,
+        offsetY + y * cellSize,
+        cellSize + 0.5,
+        cellSize + 0.5
+      );
+    }
+  }
+
+  // Draw domain boundaries if enabled
+  if (showDomains && cellSize > 3) {
+    ctx.strokeStyle = `rgba(${domainColor[0]},${domainColor[1]},${domainColor[2]},0.5)`;
+    ctx.lineWidth = 1;
+    for (let y = 0; y < L; y++) {
+      for (let x = 0; x < L; x++) {
+        const i = y * L + x;
+        const s = spins[i];
+        const right = spins[y * L + ((x + 1) % L)];
+        const down = spins[((y + 1) % L) * L + x];
+        const px = offsetX + x * cellSize;
+        const py = offsetY + y * cellSize;
+        if (s !== right) {
+          ctx.beginPath();
+          ctx.moveTo(px + cellSize, py);
+          ctx.lineTo(px + cellSize, py + cellSize);
+          ctx.stroke();
+        }
+        if (s !== down) {
+          ctx.beginPath();
+          ctx.moveTo(px, py + cellSize);
+          ctx.lineTo(px + cellSize, py + cellSize);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+}
+
+// --- Update UI ---
+function updateStats() {
+  const m = magnetization();
+  const absM = Math.abs(m);
+  const e = energyPerSite();
+  let upCount = 0;
+  for (let i = 0; i < N; i++) if (spins[i] === 1) upCount++;
+
+  document.getElementById('stepCount').textContent = totalSteps.toLocaleString();
+  document.getElementById('upCount').textContent = upCount;
+  document.getElementById('downCount').textContent = N - upCount;
+  document.getElementById('magVal').textContent = absM.toFixed(3);
+  document.getElementById('magFill').style.width = (absM * 100) + '%';
+
+  // Magnetization color: amber when ordered, blue-grey when disordered
+  if (absM > 0.5) {
+    document.getElementById('magFill').style.background = 'var(--amber)';
+  } else if (absM > 0.15) {
+    document.getElementById('magFill').style.background = '#c89854';
+  } else {
+    document.getElementById('magFill').style.background = '#5a5070';
+  }
+
+  document.getElementById('enVal').textContent = e.toFixed(3);
+  const enPct = ((e + 2) / 4) * 100;
+  document.getElementById('enFill').style.width = Math.max(0, Math.min(100, enPct)) + '%';
+
+  // Phase label
+  const Tc = 2.269;
+  let phase;
+  if (Math.abs(T - Tc) < 0.15) phase = 'critical';
+  else if (T < Tc) phase = 'ordered (ferromagnetic)';
+  else phase = 'disordered (paramagnetic)';
+  document.getElementById('phaseLabel').textContent = phase;
+}
+
+// --- Main loop ---
+let frame = 0;
+function loop() {
+  requestAnimationFrame(loop);
+
+  // Auto-cool mode
+  if (autoCool) {
+    T += coolDir * 0.003;
+    if (T < 0.3) { T = 0.3; coolDir = 1; }
+    if (T > 4.5) { T = 4.5; coolDir = -1; }
+    document.getElementById('tempSlider').value = T;
+    document.getElementById('tempVal').textContent = T.toFixed(2);
+  }
+
+  // Run Metropolis sweeps
+  for (let s = 0; s < sweeps; s++) metropolisSweep();
+
+  render();
+
+  // Update stats every ~10 frames
+  if (frame % 10 === 0) updateStats();
+  frame++;
+}
+
+// --- Controls ---
+document.getElementById('tempSlider').addEventListener('input', (e) => {
+  T = parseFloat(e.target.value);
+  document.getElementById('tempVal').textContent = T.toFixed(2);
+  autoCool = false;
+  document.getElementById('coolBtn').checked = false;
+});
+
+document.getElementById('fieldSlider').addEventListener('input', (e) => {
+  h = parseFloat(e.target.value);
+  document.getElementById('fieldVal').textContent = h.toFixed(2);
+});
+
+document.getElementById('speedSlider').addEventListener('input', (e) => {
+  sweeps = parseInt(e.target.value);
+  document.getElementById('speedVal').textContent = sweeps + ' sweeps';
+});
+
+document.getElementById('sizeSlider').addEventListener('input', (e) => {
+  const newL = parseInt(e.target.value);
+  document.getElementById('sizeVal').textContent = newL;
+  setLattice(newL);
+});
+
+document.getElementById('coolBtn').addEventListener('change', (e) => {
+  autoCool = e.target.checked;
+});
+
+document.getElementById('showDomains').addEventListener('change', (e) => {
+  showDomains = e.target.checked;
+});
+
+document.getElementById('randomBtn').addEventListener('click', () => {
+  initSpins(true);
+});
+
+document.getElementById('allUpBtn').addEventListener('click', () => {
+  initSpins(false);
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  T = 2.27;
+  h = 0;
+  autoCool = false;
+  document.getElementById('tempSlider').value = T;
+  document.getElementById('tempVal').textContent = T.toFixed(2);
+  document.getElementById('fieldSlider').value = 0;
+  document.getElementById('fieldVal').textContent = '0.00';
+  document.getElementById('coolBtn').checked = false;
+  initSpins(true);
+});
+
+// --- Click to flip spins ---
+cv.addEventListener('click', (e) => {
+  const cellSize = Math.min(W, H) / L;
+  const offsetX = (W - cellSize * L) / 2;
+  const offsetY = (H - cellSize * L) / 2;
+  const gx = Math.floor((e.clientX - offsetX) / cellSize);
+  const gy = Math.floor((e.clientY - offsetY) / cellSize);
+  if (gx >= 0 && gx < L && gy >= 0 && gy < L) {
+    const i = gy * L + gx;
+    spins[i] = -spins[i];
+    // Also flip a small neighborhood for a more visible effect
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = (gx + dx + L) % L;
+        const ny = (gy + dy + L) % L;
+        if (Math.random() < 0.4) spins[ny * L + nx] = -spins[ny * L + nx];
+      }
+    }
+  }
+});
+
+// Start
+loop();
+</script>
+</body>
+</html>

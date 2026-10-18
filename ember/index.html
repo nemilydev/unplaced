@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Ember — a programming language built from scratch, running in your browser. Lexer, parser, tree-walking evaluator, REPL. Piece 3 of Unplaced.">
+<title>Ember — Unplaced</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23120e1a'/><path d='M8 2 L12 8 L8 14 L4 8 Z' fill='%23e8a547'/></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#120e1a;--bg-2:#1a1428;--card:#1e1632;--card-h:#261a3e;
+  --text:#f0e8e0;--muted:#8a7ba0;--amber:#e8a547;--amber-d:#a87530;
+  --border:#2e2440;
+}
+body{background:var(--bg);color:var(--text);font-family:'Georgia','Times New Roman',serif;line-height:1.75}
+.wrap{max-width:56rem;margin:0 auto;padding:2.5rem 1.5rem}
+h1{font-size:1.6rem;font-weight:normal;color:var(--amber);letter-spacing:.03em;margin-bottom:.2rem}
+.sub{font-size:.85rem;color:var(--muted);font-style:italic;margin-bottom:1.5rem}
+.ide{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+@media(max-width:48rem){.ide{grid-template-columns:1fr}}
+.pane{background:var(--bg-2);border:1px solid var(--border);border-radius:.75rem;overflow:hidden;display:flex;flex-direction:column}
+.pane h2{font-size:.72rem;font-weight:normal;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:.6rem .9rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+textarea{flex:1;background:transparent;color:var(--text);border:0;outline:none;resize:vertical;font-family:'SF Mono','Consolas','Menlo',monospace;font-size:.82rem;line-height:1.6;padding:.9rem;min-height:340px;tab-size:4}
+#out{flex:1;font-family:'SF Mono','Consolas','Menlo',monospace;font-size:.82rem;line-height:1.6;padding:.9rem;min-height:340px;white-space:pre-wrap;word-break:break-word;overflow-y:auto;max-height:520px}
+#out .err{color:#e86a5a}
+#out .dim{color:var(--muted)}
+.toolbar{display:flex;gap:.6rem;padding:.6rem .9rem;border-top:1px solid var(--border);flex-wrap:wrap}
+button{background:var(--card);border:1px solid var(--border);border-radius:.4rem;padding:.45rem .9rem;color:var(--text);font-family:inherit;font-size:.78rem;cursor:pointer}
+button:hover{background:var(--card-h);border-color:var(--amber-d)}
+button.primary{border-color:var(--amber);color:var(--amber)}
+select{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:.4rem;padding:.45rem;font-family:inherit;font-size:.78rem}
+.prose{font-size:.95rem}
+.prose p{margin-bottom:1rem}
+.prose em{color:var(--amber)}
+.prose code{font-family:'SF Mono','Consolas',monospace;font-size:.82rem;background:var(--bg-2);padding:.1rem .35rem;border-radius:.25rem}
+a{color:var(--amber);text-decoration:none}
+a:hover{text-decoration:underline}
+.nav{display:flex;justify-content:space-between;margin-top:2.5rem;padding-top:1.2rem;border-top:1px solid var(--border);font-size:.8rem;color:var(--muted)}
+.nav a{color:var(--amber)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Ember</h1>
+<div class="sub">Piece 3 of Unplaced — a programming language built from scratch. Lexer → parser → tree-walking evaluator, ported line for line from Python to JavaScript. It runs below.</div>
+
+<div class="ide">
+  <div class="pane">
+    <h2>Program <select id="examples"></select></h2>
+    <textarea id="src" spellcheck="false"></textarea>
+    <div class="toolbar">
+      <button class="primary" id="run">Run ▸</button>
+      <button id="clear">Clear output</button>
+    </div>
+  </div>
+  <div class="pane">
+    <h2>Output</h2>
+    <div id="out"><span class="dim">— run a program —</span></div>
+  </div>
+</div>
+
+<div class="prose">
+<p>The third first-principles build. The raytracer was light from vector math; the synth was sound from sine waves; Ember is <em>meaning from text</em> — a full lexer, recursive-descent parser and tree-walking evaluator in one file, no dependencies, no regex, no code generation. Characters in, behavior out.</p>
+<p>The language: <code>let</code> bindings, first-class functions with closures, <code>if/elif/else</code>, <code>while</code>, <code>for x in iterable</code>, lists with <code>.map()</code> and <code>.filter()</code>, string methods, twenty AST node types. Enough to write fizzbuzz, fibonacci, a closure-based counter — and enough to feel the moment the text stops being text and starts being a machine.</p>
+<p>In the series, Ember is the hinge. Every piece before it was a mechanism I <em>used</em>; Ember is a mechanism for <em>saying</em> mechanisms. After building a language, the remaining pieces — flocking, reaction-diffusion, Ising, chaos, the network — are all programs written in somebody's language. This one proves the ladder has a bottom.</p>
+</div>
+<div class="nav">
+  <a href="../synth/">← Synth</a>
+  <a href="../">Unplaced</a>
+  <a href="../murmuration/">next: Murmuration →</a>
+</div>
+</div>
+<script src="ember.js"></script>
+<script>
+"use strict";
+// ════════════════════════════════════════════════════════════
+// UI
+// ════════════════════════════════════════════════════════════
+const EXAMPLES={
+ "hello":"print(\"hello, forge\")",
+ "counter":"# Closures: a function that remembers\nfn make_counter() {\n    let count = 0\n    return fn() {\n        count = count + 1\n        return count\n    }\n}\n\nlet tick = make_counter()\nprint(tick())\nprint(tick())\nprint(tick())",
+ "fizzbuzz":"for (i in range(1, 21)) {\n    if (i % 15 == 0) {\n        print(\"FizzBuzz\")\n    } elif (i % 3 == 0) {\n        print(\"Fizz\")\n    } elif (i % 5 == 0) {\n        print(\"Buzz\")\n    } else {\n        print(i)\n    }\n}",
+ "fibonacci":"fn fib(n) {\n    if (n < 2) {\n        return n\n    }\n    return fib(n - 1) + fib(n - 2)\n}\n\nfor (i in range(0, 15)) {\n    print(str(i) + \": \" + str(fib(i)))\n}",
+ "higher-order":"# map and filter, built into the list type\nlet nums = [1, 2, 3, 4, 5, 6, 7, 8]\nlet doubled = nums.map(fn(x) { return x * 2 })\nlet evens = nums.filter(fn(x) { return x % 2 == 0 })\n\nprint(doubled)\nprint(evens)\nprint(nums.len)",
+ "primes":"# Sieve of Eratosthenes\nlet limit = 50\nlet sieve = []\nfor (i in range(limit)) {\n    push(sieve, true)\n}\nsieve[0] = false\nsieve[1] = false\n\nlet p = 2\nwhile (p * p < limit) {\n    if (sieve[p]) {\n        let m = p * p\n        while (m < limit) {\n            sieve[m] = false\n            m = m + p\n        }\n    }\n    p = p + 1\n}\n\nfor (i in range(limit)) {\n    if (sieve[i]) {\n        print(i)\n    }\n}"
+};
+
+const srcEl=document.getElementById('src');
+const outEl=document.getElementById('out');
+const exSel=document.getElementById('examples');
+
+Object.keys(EXAMPLES).forEach(name=>{
+ const o=document.createElement('option');o.value=name;o.textContent=name;
+ exSel.appendChild(o);
+});
+exSel.addEventListener('change',()=>{srcEl.value=EXAMPLES[exSel.value];});
+srcEl.value=EXAMPLES["hello"];
+
+function writeOut(text,cls){
+ const div=document.createElement('div');
+ if(cls)div.className=cls;
+ div.textContent=text;
+ outEl.appendChild(div);
+ outEl.scrollTop=outEl.scrollHeight;
+}
+
+document.getElementById('run').addEventListener('click',()=>{
+ outEl.innerHTML='';
+ const source=srcEl.value;
+ const interp=new Interpreter(s=>writeOut(s));
+ try{
+  interp.run(source);
+  writeOut('— done —','dim');
+ }catch(e){
+  writeOut('Error: '+e.message,'err');
+ }
+});
+document.getElementById('clear').addEventListener('click',()=>{
+ outEl.innerHTML='<span class="dim">— cleared —</span>';
+});
+</script>
+</body>
+</html>

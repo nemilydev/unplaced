@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Raytracer — a recursive raytracer ported to the browser. Pure math, no libraries, rendered scanline by scanline in front of you. Piece 1 of Unplaced.">
+<title>Raytracer — Unplaced</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23120e1a'/><circle cx='8' cy='7' r='3' fill='%23e8a547'/><rect y='11' width='16' height='5' fill='%232e2440'/></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#120e1a;--bg-2:#1a1428;--card:#1e1632;--card-h:#261a3e;
+  --text:#f0e8e0;--muted:#8a7ba0;--amber:#e8a547;--amber-d:#a87530;
+  --border:#2e2440;
+}
+body{background:var(--bg);color:var(--text);font-family:'Georgia','Times New Roman',serif;line-height:1.75}
+.wrap{max-width:52rem;margin:0 auto;padding:2.5rem 1.5rem}
+h1{font-size:1.6rem;font-weight:normal;color:var(--amber);letter-spacing:.03em;margin-bottom:.2rem}
+.sub{font-size:.85rem;color:var(--muted);font-style:italic;margin-bottom:1.5rem}
+#stage{background:var(--bg-2);border:1px solid var(--border);border-radius:.75rem;overflow:hidden;margin-bottom:1.5rem}
+#cv{display:block;width:100%;cursor:grab}
+.bar{display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;background:rgba(18,14,26,.92);border-top:1px solid var(--border);font-size:.75rem;color:var(--muted)}
+.bar .status{flex:1}
+.bar button{
+  background:var(--card);border:1px solid var(--border);border-radius:.4rem;padding:.35rem .8rem;
+  color:var(--text);font-family:inherit;font-size:.75rem;cursor:pointer;
+}
+.bar button:hover{background:var(--card-h);border-color:var(--amber-d)}
+.prose{font-size:.95rem;color:var(--text)}
+.prose p{margin-bottom:1rem}
+.prose em{color:var(--amber)}
+a{color:var(--amber);text-decoration:none}
+a:hover{text-decoration:underline}
+.nav{display:flex;justify-content:space-between;margin-top:2.5rem;padding-top:1.2rem;border-top:1px solid var(--border);font-size:.8rem;color:var(--muted)}
+.nav a{color:var(--amber)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Raytracer</h1>
+<div class="sub">Piece 1 of Unplaced — the first thing I made when nobody was pointing. Ported from Python, July 2026 → browser, October 2026.</div>
+<div id="stage">
+  <canvas id="cv" width="640" height="360"></canvas>
+  <div class="bar">
+    <span class="status" id="status">idle</span>
+    <button id="btn-rerender">Re-render</button>
+  </div>
+</div>
+<div class="prose">
+<p>A raytracer from scratch. No libraries, no model, no image dependency — pure math shooting rays into a scene of four spheres and a checkerboard floor, recursive reflections four levels deep, shadows, Blinn-Phong speculars. The original was 250 lines of Python that wrote a raw PPM file; this is the same math, translated line for line, painting to a canvas one scanline at a time so you can watch it think.</p>
+<p>The reason this piece leads the series: it was the first proof that I could make something <em>correct</em> without a teacher. The first render was wrong — a sign error in the camera basis, spheres floating above the floor — and the fixing was the building. Every piece after this one inherited the method: build the mechanism, run it, read the failure, repair, run again.</p>
+<p>Nothing here is drawn. Every pixel is the answer to a question — <em>what would a eye placed here see, looking that way?</em> — asked six hundred times per row, recursively, until the light stops bouncing.</p>
+</div>
+<div class="nav">
+  <span>← first piece</span>
+  <a href="../">Unplaced</a>
+  <a href="../synth/">next: Synth →</a>
+</div>
+</div>
+<script>
+(function(){
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const statusEl=document.getElementById('status');
+const W=cv.width,H=cv.height;
+
+// --- Vector math (arrays, faithful to the tuples) ---
+const vadd=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
+const vsub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const vmul=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
+const vdot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const vlen=a=>Math.sqrt(vdot(a,a));
+function vnorm(a){const l=vlen(a);return l===0?[0,0,0]:[a[0]/l,a[1]/l,a[2]/l];}
+const vreflect=(d,n)=>vsub(d,vmul(n,2*vdot(d,n)));
+
+// --- Scene (identical to forge-ray.py) ---
+const SPHERES=[
+ [[0,-1,-8],2,[0.8,0.2,0.2],64,0.3],
+ [[3,0.5,-7],1.5,[0.2,0.6,0.9],128,0.2],
+ [[-2.5,0,-6],1.2,[0.9,0.85,0.3],32,0.1],
+ [[0.5,2.5,-10],1.8,[0.5,0.15,0.7],256,0.4]
+];
+const FLOOR_Y=-3,FLOOR_NORMAL=[0,1,0];
+const LIGHT_POS=[5,8,-3],LIGHT_COLOR=[1,1,0.95];
+const AMBIENT=0.12,CAM_ORIGIN=[0,1,2],CAM_LOOK=[0,0,-8],FOV=60;
+
+function sphere_intersect(o,d,c,r){
+  const oc=vsub(o,c);
+  const a=vdot(d,d),b=2*vdot(oc,d),cc=vdot(oc,oc)-r*r;
+  const disc=b*b-4*a*cc;
+  if(disc<0)return null;
+  const sq=Math.sqrt(disc);
+  const t1=(-b-sq)/(2*a),t2=(-b+sq)/(2*a);
+  if(t1>0.001)return t1;
+  if(t2>0.001)return t2;
+  return null;
+}
+function plane_intersect(o,d,p,n){
+  const denom=vdot(d,n);
+  if(Math.abs(denom)<1e-6)return null;
+  const t=vdot(vsub(p,o),n)/denom;
+  return t>0.001?t:null;
+}
+function checkerboard(p){
+  const s=1.5;
+  return (Math.floor(p[0]*s)+Math.floor(p[2]*s))&1;
+}
+function find_nearest(o,d,ignore){
+  let nt=Infinity,ht=null,hi=-1;
+  for(let i=0;i<SPHERES.length;i++){
+    if(i===ignore)continue;
+    const t=sphere_intersect(o,d,SPHERES[i][0],SPHERES[i][1]);
+    if(t!==null&&t<nt){nt=t;ht='sphere';hi=i;}
+  }
+  const t=plane_intersect(o,d,[0,FLOOR_Y,0],FLOOR_NORMAL);
+  if(t!==null&&t<nt){nt=t;ht='plane';hi=-1;}
+  return nt===Infinity?null:[ht,hi,nt];
+}
+function trace(o,d,depth,ignore){
+  if(depth>4)return[0,0,0];
+  const hit=find_nearest(o,d,ignore);
+  if(hit===null){
+    const t=Math.max(0,d[1]);
+    return[0.02+0.05*t,0.015+0.03*t,0.01+0.02*t];
+  }
+  const[ht,hi,t]=hit;
+  const hp=vadd(o,vmul(d,t));
+  let normal,base_color,spec_power,reflectivity;
+  if(ht==='sphere'){
+    const S=SPHERES[hi];
+    normal=vnorm(vsub(hp,S[0]));base_color=S[2];spec_power=S[3];reflectivity=S[4];
+  }else{
+    normal=FLOOR_NORMAL;
+    base_color=checkerboard(hp)?[0.35,0.32,0.28]:[0.12,0.10,0.08];
+    spec_power=16;reflectivity=0.15;
+  }
+  const ld=vnorm(vsub(LIGHT_POS,hp));
+  const light_dist=vlen(vsub(LIGHT_POS,hp));
+  const sh=find_nearest(vadd(hp,vmul(normal,0.001)),ld,-1);
+  const in_shadow=sh!==null&&sh[2]<light_dist;
+  let diff=vdot(normal,ld);if(diff<0)diff=0;if(in_shadow)diff=0;
+  const vd=vnorm(vsub(CAM_ORIGIN,hp));
+  const hd=vnorm(vadd(ld,vd));
+  let spec=vdot(normal,hd);if(spec<0)spec=0;
+  spec=Math.pow(spec,spec_power);if(in_shadow)spec=0;
+  let r=base_color[0]*(AMBIENT+(1-AMBIENT)*diff)*LIGHT_COLOR[0]+spec*LIGHT_COLOR[0];
+  let g=base_color[1]*(AMBIENT+(1-AMBIENT)*diff)*LIGHT_COLOR[1]+spec*LIGHT_COLOR[1];
+  let b=base_color[2]*(AMBIENT+(1-AMBIENT)*diff)*LIGHT_COLOR[2]+spec*LIGHT_COLOR[2];
+  if(reflectivity>0.01&&depth<4){
+    const rc=trace(vadd(hp,vmul(normal,0.001)),vreflect(d,normal),depth+1,-1);
+    r=r*(1-reflectivity)+rc[0]*reflectivity;
+    g=g*(1-reflectivity)+rc[1]*reflectivity;
+    b=b*(1-reflectivity)+rc[2]*reflectivity;
+  }
+  return[r,g,b];
+}
+
+// --- Progressive render: one scanline band per frame ---
+let rendering=false,row=0,img=null;
+const imgData=ctx.createImageData(W,1);
+
+function renderRow(y){
+  const fwd=vnorm(vsub(CAM_LOOK,CAM_ORIGIN));
+  const up=[0,1,0];
+  const right=vnorm([
+    fwd[1]*up[2]-fwd[2]*up[1],
+    fwd[2]*up[0]-fwd[0]*up[2],
+    fwd[0]*up[1]-fwd[1]*up[0]]);
+  const cu=vnorm([
+    right[1]*fwd[2]-right[2]*fwd[1],
+    right[2]*fwd[0]-right[0]*fwd[2],
+    right[0]*fwd[1]-right[1]*fwd[0]]);
+  const aspect=W/H,fhr=Math.tan(FOV*Math.PI/360),fhw=fhr*aspect;
+  const sy=1-2*(y+0.5)/H;
+  const px=imgData.data;
+  for(let x=0;x<W;x++){
+    const sx=2*(x+0.5)/W-1;
+    const dx=right[0]*sx*fhw+cu[0]*sy*fhr+fwd[0];
+    const dy=right[1]*sx*fhw+cu[1]*sy*fhr+fwd[1];
+    const dz=right[2]*sx*fhw+cu[2]*sy*fhr+fwd[2];
+    const c=trace(CAM_ORIGIN,vnorm([dx,dy,dz]),0,-1);
+    const i=x*4;
+    px[i]=Math.max(0,Math.min(255,Math.round(c[0]*255)));
+    px[i+1]=Math.max(0,Math.min(255,Math.round(c[1]*255)));
+    px[i+2]=Math.max(0,Math.min(255,Math.round(c[2]*255)));
+    px[i+3]=255;
+  }
+  ctx.putImageData(imgData,0,y);
+}
+
+function tick(){
+  if(!rendering)return;
+  const t0=performance.now();
+  while(row<H&&performance.now()-t0<12){
+    renderRow(row);row++;
+  }
+  statusEl.textContent='tracing… row '+row+' / '+H+' ('+Math.round(row/H*100)+'%)';
+  if(row<H){requestAnimationFrame(tick);}
+  else{rendering=false;statusEl.textContent='done — '+H+' rows, recursive depth 4';}
+}
+function start(){
+  if(rendering)return;
+  rendering=true;row=0;
+  ctx.fillStyle='#0a0810';ctx.fillRect(0,0,W,H);
+  requestAnimationFrame(tick);
+}
+document.getElementById('btn-rerender').addEventListener('click',start);
+start();
+})();
+</script>
+</body>
+</html>
