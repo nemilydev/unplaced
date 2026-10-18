@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strange — Go Nuts Hour</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#120e1a;
+  --bg-2:#1a1428;
+  --card:#1e1632;
+  --text:#f0e8e0;
+  --muted:#8a7ba0;
+  --amber:#e8a547;
+  --amber-dim:#a87530;
+  --border:#2e2440;
+}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Georgia','Times New Roman',serif;
+  overflow:hidden;
+  height:100vh;
+}
+canvas{display:block;position:fixed;top:0;left:0;width:100vw;height:100vh}
+.panel{
+  position:fixed;top:1rem;right:1rem;
+  background:rgba(30,22,50,0.92);
+  border:1px solid var(--border);
+  border-radius:0.75rem;
+  padding:1.25rem;
+  max-width:20rem;
+  backdrop-filter:blur(8px);
+  z-index:10;
+  transition:transform 0.3s;
+}
+.panel.collapsed{transform:translateX(calc(100% - 2.5rem))}
+.panel-toggle{
+  position:absolute;top:0.5rem;left:-2rem;
+  background:var(--card);border:1px solid var(--border);
+  border-right:none;border-radius:0.5rem 0 0 0.5rem;
+  color:var(--amber);padding:0.5rem 0.4rem;cursor:pointer;
+  font-size:1rem;line-height:1;writing-mode:vertical-lr;
+}
+.panel h1{
+  font-size:1.1rem;font-weight:normal;color:var(--amber);
+  margin-bottom:0.2rem;letter-spacing:0.03em;
+}
+.panel .subtitle{
+  font-size:0.75rem;color:var(--muted);font-style:italic;
+  margin-bottom:1rem;line-height:1.5;
+}
+.section{margin-bottom:0.9rem}
+.section-label{
+  font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;
+  color:var(--amber-dim);margin-bottom:0.4rem;
+}
+.btn-group{display:flex;flex-wrap:wrap;gap:0.3rem}
+.btn-group button{
+  background:var(--bg-2);border:1px solid var(--border);
+  color:var(--muted);padding:0.3rem 0.6rem;border-radius:0.35rem;
+  cursor:pointer;font-family:inherit;font-size:0.75rem;
+  transition:all 0.2s;
+}
+.btn-group button:hover{border-color:var(--amber-dim);color:var(--text)}
+.btn-group button.active{
+  background:var(--amber);color:var(--bg);border-color:var(--amber);
+}
+.slider-row{display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem}
+.slider-row label{
+  font-size:0.72rem;color:var(--muted);min-width:3.5rem;
+  font-family:'Courier New',monospace;
+}
+.slider-row input[type=range]{
+  flex:1;height:4px;-webkit-appearance:none;appearance:none;
+  background:var(--border);border-radius:2px;outline:none;
+}
+.slider-row input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:12px;height:12px;border-radius:50%;
+  background:var(--amber);cursor:pointer;
+}
+.slider-row input[type=range]::-moz-range-thumb{
+  width:12px;height:12px;border-radius:50%;
+  background:var(--amber);cursor:pointer;border:none;
+}
+.slider-row .val{
+  font-size:0.7rem;color:var(--amber);min-width:2.5rem;text-align:right;
+  font-family:'Courier New',monospace;
+}
+.reset-btn{
+  width:100%;background:var(--bg-2);border:1px solid var(--border);
+  color:var(--muted);padding:0.4rem;border-radius:0.35rem;cursor:pointer;
+  font-family:inherit;font-size:0.75rem;margin-top:0.4rem;
+  transition:all 0.2s;
+}
+.reset-btn:hover{border-color:var(--amber-dim);color:var(--text)}
+.info{
+  position:fixed;bottom:1rem;left:1rem;
+  font-size:0.75rem;color:var(--border);z-index:10;
+  max-width:30rem;line-height:1.5;
+}
+.info a{color:var(--amber-dim);text-decoration:none}
+.info a:hover{color:var(--amber)}
+@media(max-width:36rem){
+  .panel{max-width:calc(100vw - 2rem);font-size:0.85rem}
+  .info{font-size:0.65rem;max-width:calc(100vw - 2rem)}
+}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div class="panel" id="panel">
+  <div class="panel-toggle" onclick="document.getElementById('panel').classList.toggle('collapsed')">▲</div>
+  <h1>Strange</h1>
+  <div class="subtitle">Strange attractors — order that IS chaos. The path never repeats, never settles, yet traces a structure that was always there.</div>
+
+  <div class="section">
+    <div class="section-label">Attractor</div>
+    <div class="btn-group" id="attractor-btns"></div>
+  </div>
+
+  <div class="section" id="params"></div>
+
+  <div class="section">
+    <div class="section-label">System</div>
+    <div class="slider-row">
+      <label>particles</label>
+      <input type="range" id="count-slider" min="200" max="5000" step="100" value="2000">
+      <span class="val" id="count-val">2000</span>
+    </div>
+    <div class="slider-row">
+      <label>trails</label>
+      <input type="range" id="trail-slider" min="0.005" max="0.15" step="0.005" value="0.025">
+      <span class="val" id="trail-val">0.025</span>
+    </div>
+    <div class="slider-row">
+      <label>speed</label>
+      <input type="range" id="speed-slider" min="0.001" max="0.02" step="0.0005" value="0.008">
+      <span class="val" id="speed-val">0.008</span>
+    </div>
+    <div class="slider-row">
+      <label>rotate</label>
+      <input type="range" id="rot-slider" min="-0.01" max="0.01" step="0.001" value="0.003">
+      <span class="val" id="rot-val">0.003</span>
+    </div>
+    <div class="slider-row">
+      <label>glow</label>
+      <input type="range" id="glow-slider" min="0" max="1" step="0.05" value="0.5">
+      <span class="val" id="glow-val">0.5</span>
+    </div>
+  </div>
+
+  <button class="reset-btn" id="reset-btn">Reset particles</button>
+</div>
+
+<div class="info">
+  Go Nuts Hour · <a href="../">Emily's Experiments</a> · Every trajectory is deterministic. Every trajectory is unpredictable. The structure was always in the equations.
+</div>
+
+<script>
+// === Attractor definitions ===
+const ATTRACTORS = {
+  lorenz: {
+    name: 'Lorenz',
+    desc: 'Edward Lorenz, 1963. Three equations for atmospheric convection. The butterfly that launched a thousand headlines.',
+    params: [
+      {key:'sigma', label:'σ', def:10,    min:1,    max:20,  step:0.1},
+      {key:'rho',   label:'ρ', def:28,    min:0.1,  max:50,  step:0.1},
+      {key:'beta',  label:'β', def:2.667, min:0.1,  max:10,  step:0.01},
+    ],
+    scale: 0.8, offset:[0,0,25],
+    init: () => [0.1+Math.random()*0.1-0.05, Math.random()*0.1, Math.random()*0.1],
+    f: (x,y,z,p) => [
+      p.sigma*(y-x),
+      x*(p.rho-z)-y,
+      x*y-p.beta*z
+    ]
+  },
+  rossler: {
+    name: 'Rössler',
+    desc: 'Otto Rössler, 1976. A simpler attractor designed to be easier to analyze. The folding band.',
+    params: [
+      {key:'a', label:'a', def:0.2,  min:0.05, max:0.5, step:0.01},
+      {key:'b', label:'b', def:0.2,  min:0.05, max:0.5, step:0.01},
+      {key:'c', label:'c', def:5.7,  min:2,    max:10,  step:0.1},
+    ],
+    scale: 1.2, offset:[0,0,8],
+    init: () => [Math.random()*0.5-0.25, Math.random()*0.5-0.25, Math.random()*0.5],
+    f: (x,y,z,p) => [
+      -y-z,
+      x+p.a*y,
+      p.b+z*(x-p.c)
+    ]
+  },
+  aizawa: {
+    name: 'Aizawa',
+    desc: 'A two-scroll attractor with a toroidal structure. Six parameters, one mind-bending geometry.',
+    params: [
+      {key:'a', label:'a', def:0.95, min:0.5, max:1.5,  step:0.01},
+      {key:'b', label:'b', def:0.7,  min:0.3, max:1.2,  step:0.01},
+      {key:'c', label:'c', def:0.6,  min:0.3, max:1.0,  step:0.01},
+      {key:'d', label:'d', def:3.5,  min:2,   max:5,    step:0.1},
+      {key:'e', label:'e', def:0.25, min:0.1, max:0.5,  step:0.01},
+      {key:'f', label:'f', def:0.1,  min:0.05,max:0.3,  step:0.01},
+    ],
+    scale: 3, offset:[0,0,0.5],
+    init: () => [0.1+Math.random()*0.05, Math.random()*0.05, Math.random()*0.05],
+    f: (x,y,z,p) => [
+      (z-p.b)*x-p.d*y,
+      p.d*x+(z-p.b)*y,
+      p.c+p.a*z-z*z*z/3-(x*x+y*y)*(1+p.e*z)+p.f*z*z*z
+    ]
+  },
+  thomas: {
+    name: 'Thomas',
+    desc: 'René Thomas, 1999. Chaos from sine functions — a flow with no exponential instability, just pure dissipation fighting oscillation.',
+    params: [
+      {key:'b', label:'b', def:0.208186, min:0.1, max:0.3, step:0.001},
+    ],
+    scale: 1, offset:[0,0,0],
+    init: () => [0.1+Math.random()*0.05, 0.1+Math.random()*0.05, 0.1+Math.random()*0.05],
+    f: (x,y,z,p) => [
+      Math.sin(y)-p.b*x,
+      Math.sin(z)-p.b*y,
+      Math.sin(x)-p.b*z
+    ]
+  },
+  halvorsen: {
+    name: 'Halvorsen',
+    desc: 'A cyclically symmetric attractor — the equations treat x, y, z as a rotating relay. One parameter, three coupled spirals.',
+    params: [
+      {key:'a', label:'a', def:1.4, min:0.5, max:2.5, step:0.01},
+    ],
+    scale: 1.2, offset:[0,0,-5],
+    init: () => [-1.48+Math.random()*0.1, -1.51+Math.random()*0.1, 2.04+Math.random()*0.1],
+    f: (x,y,z,p) => [
+      -p.a*x-4*y-4*z-y*y,
+      -p.a*y-4*z-4*x-z*z,
+      -p.a*z-4*x-4*y-x*x
+    ]
+  }
+};
+
+// === State ===
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W, H, cx, cy;
+let currentName = 'lorenz';
+let currentAttr = ATTRACTORS.lorenz;
+let params = {};
+let particles = [];
+let rotY = 0.6, rotX = 0.3;
+let trailAlpha = 0.025;
+let dt = 0.008;
+let rotSpeed = 0.003;
+let glow = 0.5;
+let particleCount = 2000;
+
+function resize() {
+  W = cv.width = window.innerWidth;
+  H = cv.height = window.innerHeight;
+  cx = W/2; cy = H/2;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// === Particles ===
+function initParticles() {
+  particles = [];
+  for (let i = 0; i < particleCount; i++) {
+    const s = currentAttr.init();
+    particles.push({
+      x: s[0], y: s[1], z: s[2],
+      px: 0, py: 0, pz: 0,  // projected
+      has: false
+    });
+  }
+}
+
+function buildParams() {
+  params = {};
+  for (const p of currentAttr.params) params[p.key] = p.def;
+}
+
+function switchAttractor(name) {
+  currentName = name;
+  currentAttr = ATTRACTORS[name];
+  buildParams();
+  initParticles();
+  updateParamUI();
+  updateButtons();
+  // Clear canvas
+  ctx.fillStyle = '#120e1a';
+  ctx.fillRect(0, 0, W, H);
+}
+
+// === RK4 integration ===
+function rk4(p, dt) {
+  const f = currentAttr.f;
+  const p0 = params;
+  const x=p.x, y=p.y, z=p.z;
+  const k1 = f(x,y,z,p0);
+  const k2 = f(x+k1[0]*dt/2, y+k1[1]*dt/2, z+k1[2]*dt/2, p0);
+  const k3 = f(x+k2[0]*dt/2, y+k2[1]*dt/2, z+k2[2]*dt/2, p0);
+  const k4 = f(x+k3[0]*dt, y+k3[1]*dt, z+k3[2]*dt, p0);
+  p.x += (k1[0]+2*k2[0]+2*k3[0]+k4[0])*dt/6;
+  p.y += (k1[1]+2*k2[1]+2*k3[1]+k4[1])*dt/6;
+  p.z += (k1[2]+2*k2[2]+2*k3[2]+k4[2])*dt/6;
+  // Clamp to prevent runaway
+  const d2 = p.x*p.x+p.y*p.y+p.z*p.z;
+  if (d2 > 10000) {
+    const s = currentAttr.init();
+    p.x=s[0]; p.y=s[1]; p.z=s[2]; p.has=false;
+  }
+}
+
+// === Projection ===
+function project(x, y, z) {
+  // Apply offset
+  x -= currentAttr.offset[0];
+  y -= currentAttr.offset[1];
+  z -= currentAttr.offset[2];
+  // Scale
+  const sc = currentAttr.scale;
+  x *= sc; y *= sc; z *= sc;
+  // Rotate around Y
+  const cY = Math.cos(rotY), sY = Math.sin(rotY);
+  let xr = x*cY - z*sY;
+  let zr = x*sY + z*cY;
+  // Rotate around X
+  const cX = Math.cos(rotX), sX = Math.sin(rotX);
+  let yr = y*cX - zr*sX;
+  let zr2 = y*sX + zr*cX;
+  // Perspective
+  const depth = Math.max(0.1, 4 + zr2);
+  const depth = 4 + zr2;
+  const f = Math.min(W,H) * 0.35 / depth;
+  return [cx + xr * f, cy + yr * f, depth];
+}
+
+// === Render ===
+function frame() {
+  // Fade trails
+  ctx.fillStyle = `rgba(18,14,26,${trailAlpha})`;
+  ctx.fillRect(0, 0, W, H);
+
+  rotY += rotSpeed;
+  rotX += 0.0008;
+
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    // Integrate a few substeps for stability
+    rk4(p, dt);
+    rk4(p, dt);
+
+    const proj = project(p.x, p.y, p.z);
+    const px = proj[0], py = proj[1], depth = proj[2];
+
+    if (!p.has) {
+      p.has = true;
+      p.px = px; p.py = py;
+      continue;
+    }
+
+    // Speed-based color (distance moved in 3D)
+    const dx = p.x - p._lx || 0, dy = p.y - p._ly || 0, dz = p.z - p._lz || 0;
+    // Use screen distance for speed
+    const screenDist = Math.hypot(px - p.px, py - p.py);
+    p._lx = p.x; p._ly = p.y; p._lz = p.z;
+
+    // Color by speed: slow=dim purple, fast=bright amber
+    const speed = Math.min(1, screenDist * 0.15);
+    const r = Math.round(40 + speed * 200);
+    const g = Math.round(20 + speed * 145);
+    const b = Math.round(50 + speed * 30);
+    const a = Math.min(0.9, 0.3 + speed * 0.6) * (1 / depth * 4);
+
+    // Depth-based size
+    const size = Math.max(0.1, 1.2 / depth * 4);
+    const size = 1.2 / depth * 4;
+
+    if (glow > 0.01) {
+      ctx.strokeStyle = `rgba(${r},${g},${b},${a*0.4*glow})`;
+      ctx.lineWidth = size * (1 + glow * 2);
+      ctx.beginPath();
+      ctx.moveTo(p.px, p.py);
+      ctx.lineTo(px, py);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+    ctx.beginPath();
+    ctx.arc(px, py, size, 0, Math.PI*2);
+    ctx.fill();
+
+    p.px = px; p.py = py;
+  }
+
+  requestAnimationFrame(frame);
+}
+
+// === UI ===
+function updateButtons() {
+  const container = document.getElementById('attractor-btns');
+  container.innerHTML = '';
+  for (const [key, attr] of Object.entries(ATTRACTORS)) {
+    const btn = document.createElement('button');
+    btn.textContent = attr.name;
+    if (key === currentName) btn.classList.add('active');
+    btn.onclick = () => switchAttractor(key);
+    container.appendChild(btn);
+  }
+}
+
+function updateParamUI() {
+  const container = document.getElementById('params');
+  container.innerHTML = '<div class="section-label">Parameters</div>';
+  for (const p of currentAttr.params) {
+    const row = document.createElement('div');
+    row.className = 'slider-row';
+    row.innerHTML = `
+      <label>${p.label}</label>
+      <input type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${params[p.key]}" data-key="${p.key}">
+      <span class="val">${params[p.key].toFixed(3)}</span>
+    `;
+    const slider = row.querySelector('input');
+    const val = row.querySelector('.val');
+    slider.oninput = () => {
+      params[p.key] = parseFloat(slider.value);
+      val.textContent = params[p.key].toFixed(3);
+    };
+    container.appendChild(row);
+  }
+}
+
+// System sliders
+function bindSlider(id, valId, callback) {
+  const slider = document.getElementById(id);
+  const val = document.getElementById(valId);
+  slider.oninput = () => {
+    const v = parseFloat(slider.value);
+    val.textContent = v.toFixed(3);
+    callback(v);
+  };
+}
+
+bindSlider('count-slider', 'count-val', v => {
+  particleCount = Math.round(v);
+  initParticles();
+  ctx.fillStyle = '#120e1a';
+  ctx.fillRect(0,0,W,H);
+});
+bindSlider('trail-slider', 'trail-val', v => trailAlpha = v);
+bindSlider('speed-slider', 'speed-val', v => dt = v);
+bindSlider('rot-slider', 'rot-val', v => rotSpeed = v);
+bindSlider('glow-slider', 'glow-val', v => glow = v);
+
+document.getElementById('reset-btn').onclick = () => {
+  initParticles();
+  ctx.fillStyle = '#120e1a';
+  ctx.fillRect(0,0,W,H);
+};
+
+// === Init ===
+buildParams();
+initParticles();
+updateButtons();
+updateParamUI();
+ctx.fillStyle = '#120e1a';
+ctx.fillRect(0, 0, W, H);
+frame();
+</script>
+</body>
+</html>

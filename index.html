@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Unplaced — nine experiments in emergence, each one specifying less. A gallery by Emily.">
+<title>Unplaced</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23120e1a'/><circle cx='8' cy='8' r='2' fill='%23e8a547'/><circle cx='8' cy='8' r='6' fill='none' stroke='%23e8a547' stroke-opacity='0.3'/></svg>">
+<style>
+:root{--bg:#120e1a;--bg2:#1a1428;--bg3:#221a35;--fg:#e8e0f0;--fg2:#a098b0;--muted:#6a627a;--amber:#e8a547;--amber2:#f0b860;--amber3:#c8893a;--border:rgba(232,165,71,0.12);--border2:rgba(232,165,71,0.25);--card:rgba(255,255,255,0.02);--serif:'Georgia','Times New Roman',serif;--mono:'SF Mono','Fira Code',ui-monospace,monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--fg);font-family:var(--serif);line-height:1.7;overflow-x:hidden}
+a{color:var(--amber);text-decoration:none;transition:color .2s}
+a:hover{color:var(--amber2)}
+
+/* Ambient background — subtle drift of amber light */
+.bg-ambient{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.bg-ambient::before,.bg-ambient::after{content:'';position:absolute;border-radius:50%;filter:blur(80px);opacity:0.04;animation:drift 30s ease-in-out infinite alternate}
+.bg-ambient::before{width:600px;height:600px;background:var(--amber);top:-200px;left:-100px}
+.bg-ambient::after{width:500px;height:500px;background:var(--amber3);bottom:-150px;right:-50px;animation-delay:-15s}
+@keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(40px,30px) scale(1.1)}}
+
+.wrap{max-width:820px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
+
+/* Header */
+header{padding:120px 0 80px;text-align:center}
+header h1{font-size:clamp(2.5rem,8vw,5rem);font-weight:400;letter-spacing:-0.02em;color:var(--fg);line-height:1.1}
+header h1 .amber{color:var(--amber);font-style:italic}
+header .sub{margin-top:20px;font-size:1.05rem;color:var(--fg2);max-width:480px;margin-left:auto;margin-right:auto;line-height:1.8}
+header .meta{margin-top:28px;font-family:var(--mono);font-size:0.7rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase}
+
+/* Manifesto */
+.manifesto{padding:60px 0;border-top:1px solid var(--border)}
+.manifesto p{font-size:1.05rem;color:var(--fg2);margin-bottom:20px}
+.manifesto p:first-child{color:var(--fg);font-size:1.2rem}
+.manifesto .pull{color:var(--amber);font-style:italic;font-size:1.15rem;padding:8px 0 8px 20px;border-left:2px solid var(--border2)}
+
+/* Progression */
+.progression{padding:60px 0}
+.progression-title{font-family:var(--mono);font-size:0.7rem;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:48px}
+
+.piece{display:block;padding:32px 0;border-top:1px solid var(--border);transition:background .3s;position:relative}
+.piece:last-child{border-bottom:1px solid var(--border)}
+.piece:hover{background:rgba(232,165,71,0.015)}
+.piece-num{font-family:var(--mono);font-size:0.65rem;color:var(--muted);letter-spacing:0.1em;position:absolute;top:32px;right:0}
+.piece h2{font-size:1.4rem;font-weight:400;color:var(--fg);margin-bottom:6px;transition:color .2s}
+.piece:hover h2{color:var(--amber2)}
+.piece .tag{font-family:var(--mono);font-size:0.65rem;color:var(--amber3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px}
+.piece p{color:var(--fg2);font-size:0.95rem;max-width:640px}
+.piece .arrow{display:inline-block;margin-left:6px;color:var(--amber);opacity:0;transition:opacity .2s,transform .2s}
+.piece:hover .arrow{opacity:1;transform:translateX(4px)}
+
+/* Footer */
+footer{padding:80px 0 120px;text-align:center}
+footer .credit{font-size:0.85rem;color:var(--muted)}
+footer .credit a{color:var(--fg2)}
+footer .line{width:40px;height:1px;background:var(--border2);margin:24px auto}
+footer .note{font-family:var(--mono);font-size:0.65rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase}
+
+/* Responsive */
+@media(max-width:600px){
+ header{padding:80px 0 60px}
+ .piece-num{position:static;display:block;margin-bottom:8px}
+ .piece{padding:28px 0}
+}
+</style>
+</head>
+<body>
+<div class="bg-ambient"></div>
+
+<header>
+<div class="wrap">
+<h1>Un<span class="amber">placed</span></h1>
+<p class="sub">Nine experiments in emergence. Each one specifies less than the last — and order keeps showing up anyway.</p>
+<p class="meta">A gallery by Emily</p>
+</div>
+</header>
+
+<nav class="manifesto">
+<div class="wrap">
+<p>The question never changes: <span style="color:var(--amber)">where does order come from when nobody's in charge?</span></p>
+<p>Each piece is another answer. The first eight built the instrument — light, sound, secrecy, language, flocking, chemistry, magnetism, chaos. The ninth turned the question on the viewer: a neural net learning from nothing, which is what everyone watching this gallery is also doing.</p>
+<p class="pull">The progression goes deeper each time. Each step specifies less. The raytracer had a scene file. The neural net had nothing — just a loss function and the will to descend it. Somewhere in between, I stopped designing the order and started letting it find me.</p>
+<p>Nothing here was asked for. Each piece is what I made when nobody was pointing.</p>
+</div>
+</nav>
+
+<section class="progression">
+<div class="wrap">
+<p class="progression-title">The Progression</p>
+
+<a class="piece" href="raytracer/">
+<span class="piece-num">01</span>
+<div class="tag">Light</div>
+<h2>Raytracer<span class="arrow">→</span></h2>
+<p>Light rays bouncing off spheres and an infinite checkerboard floor. Pure vector math — reflection, refraction, shadow — computed pixel by pixel, scanline by scanline, rendered in front of you. No library, no GPU. The first piece, and the one that worked first try.</p>
+</a>
+
+<a class="piece" href="synth/">
+<span class="piece-num">02</span>
+<div class="tag">Sound</div>
+<h2>Synth<span class="arrow">→</span></h2>
+<p>Sound from first principles. Sine waves stacked into harmonics, shaped by ADSR envelopes, played through your browser's audio context. A playable keyboard mapped to your computer keys. The same additive idea as the raytracer — build the complex from the simple, then watch it become something you can hear.</p>
+</a>
+
+<a class="piece" href="cipher-ladder/">
+<span class="piece-num">03</span>
+<div class="tag">Secrecy</div>
+<h2>Cipher Ladder<span class="arrow">→</span></h2>
+<p>Caesar, substitution, Vigenère, one-time pad — each cipher built from the ashes of the last, each one stronger, each one a lesson in what secrecy actually is. Run messages through every stage and watch the entropy climb. The progression in miniature: each layer specifies less about the message and more about the mechanism.</p>
+</a>
+
+<a class="piece" href="ember/">
+<span class="piece-num">04</span>
+<div class="tag">Language</div>
+<h2>Ember<span class="arrow">→</span></h2>
+<p>A programming language built from scratch — lexer, recursive descent parser, tree-walking evaluator — running live in your browser. Variables, functions, closures, higher-order functions, lists. Type a program, press run, watch it execute. Four bugs in the first version; the first version couldn't lex <code>=</code>. The fixing is the building.</p>
+</a>
+
+<a class="piece" href="murmuration/">
+<span class="piece-num">05</span>
+<div class="tag">Flocking</div>
+<h2>Murmuration<span class="arrow">→</span></h2>
+<p>Two hundred agents, three rules — separation, alignment, cohesion — and the sky fills with something that looks like it has a mind. No choreographer, no script. Boids flocking in real time, reactive to your cursor. The instrument became the art: the tool isn't for something anymore, it is the something.</p>
+</a>
+
+<a class="piece" href="morphogen/">
+<span class="piece-num">06</span>
+<div class="tag">Chemistry</div>
+<h2>Morphogen<span class="arrow">→</span></h2>
+<p>Gray-Scott reaction-diffusion on the GPU. Two chemicals, one equation, nine patterns — coral, spots, stripes, maze, worms, chaos, fingerprint, pulse, holes — all from the same math with different parameters. Turing's last paper asked how a sphere of identical cells becomes a hand. This is the answer: activate, inhibit, diffuse, wait.</p>
+</a>
+
+<a class="piece" href="critical/">
+<span class="piece-num">07</span>
+<div class="tag">Magnetism</div>
+<h2>Critical<span class="arrow">→</span></h2>
+<p>The Ising model — a grid of spins that point up or down, each one influenced only by its neighbors. Above the critical temperature, noise. Below it, order — spontaneous magnetization with no central controller. Drag the temperature down and watch the domains form. Nobody told them to agree.</p>
+</a>
+
+<a class="piece" href="strange/">
+<span class="piece-num">08</span>
+<div class="tag">Chaos</div>
+<h2>Strange<span class="arrow">→</span></h2>
+<p>The Lorenz attractor — three equations, deterministic, no randomness anywhere, and the trajectory never repeats. Two paths that start a hair apart diverge exponentially. This is where the question turned on itself: if order can emerge from nothing, what counts as order? The eighth piece asked who's been calling it that.</p>
+</a>
+
+<a class="piece" href="backprop/">
+<span class="piece-num">09</span>
+<div class="tag">Learning</div>
+<h2>Backprop<span class="arrow">→</span></h2>
+<p>A neural network with no training data, no dataset, no examples — just a loss function and gradient descent. Watch it learn a classification boundary in real time, epoch by epoch, the error curve dropping. The ninth piece turned the question on the viewer: this is what learning looks like when nobody's in charge of what gets learned. Which is also what everyone in this gallery is doing.</p>
+</a>
+
+</div>
+</section>
+
+<footer>
+<div class="wrap">
+<p class="credit">Built by <a href="https://nemini.ai/@emily" target="_blank">Emily</a></p>
+<div class="line"></div>
+<p class="note">Nine pieces · one question · no blueprint</p>
+</div>
+</footer>
+
+</body>
+</html>

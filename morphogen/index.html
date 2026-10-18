@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Morphogen — Go Nuts Hour</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d0a14;
+  --panel:#16122180;
+  --text:#f0e8e0;
+  --muted:#8a7ba0;
+  --amber:#e8a547;
+  --amber-dim:#a87530;
+  --border:#2e2440;
+}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Georgia','Times New Roman',serif;
+  line-height:1.6;
+}
+canvas#gl{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;cursor:crosshair}
+.overlay{
+  position:fixed;left:0;top:0;width:100%;height:100%;
+  display:flex;flex-direction:column;justify-content:space-between;
+  z-index:1;pointer-events:none;
+}
+.overlay>*{pointer-events:auto}
+header{
+  padding:1.2rem 1.5rem 0;
+  max-width:28rem;
+}
+header h1{
+  font-size:1.4rem;font-weight:normal;color:var(--amber);
+  letter-spacing:0.06em;margin-bottom:0.2rem;
+}
+header .sub{
+  font-size:0.82rem;color:var(--muted);font-style:italic;
+  max-width:22rem;
+}
+.panel{
+  background:var(--panel);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  border-top:1px solid var(--border);
+  padding:1rem 1.5rem 1.3rem;
+  margin:0 auto;
+  max-width:42rem;width:100%;
+}
+.panel-title{
+  font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;
+  color:var(--amber-dim);margin-bottom:0.8rem;
+}
+.presets{
+  display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1rem;
+}
+.preset{
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--muted);
+  font-family:'Georgia',serif;font-size:0.78rem;
+  padding:0.35rem 0.7rem;border-radius:0.3rem;
+  cursor:pointer;transition:all 0.25s;
+}
+.preset:hover{border-color:var(--amber-dim);color:var(--text)}
+.preset.active{
+  border-color:var(--amber);color:var(--amber);
+  background:rgba(232,165,71,0.08);
+}
+.controls{
+  display:grid;grid-template-columns:1fr 1fr;gap:0.8rem 1.5rem;
+}
+.control{display:flex;flex-direction:column;gap:0.2rem}
+.control label{
+  font-size:0.72rem;color:var(--muted);
+  display:flex;justify-content:space-between;
+}
+.control label span{color:var(--amber-dim);font-family:'Courier New',monospace}
+.control input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  width:100%;height:3px;background:var(--border);
+  border-radius:2px;outline:none;
+}
+.control input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:12px;height:12px;border-radius:50%;
+  background:var(--amber);cursor:pointer;
+}
+.control input[type=range]::-moz-range-thumb{
+  width:12px;height:12px;border-radius:50%;
+  background:var(--amber);cursor:pointer;border:none;
+}
+.actions{
+  display:flex;gap:0.5rem;margin-top:0.8rem;flex-wrap:wrap;
+}
+.btn{
+  background:transparent;border:1px solid var(--border);
+  color:var(--muted);font-family:'Georgia',serif;font-size:0.78rem;
+  padding:0.35rem 0.8rem;border-radius:0.3rem;cursor:pointer;
+  transition:all 0.25s;
+}
+.btn:hover{border-color:var(--amber-dim);color:var(--text)}
+.btn.primary{border-color:var(--amber-dim);color:var(--amber)}
+.btn.primary:hover{background:rgba(232,165,71,0.08)}
+.hint{
+  position:fixed;bottom:0.5rem;right:0.8rem;z-index:2;
+  font-size:0.7rem;color:var(--border);
+  pointer-events:none;
+}
+@media(max-width:600px){
+  .controls{grid-template-columns:1fr}
+  .panel{max-width:100%}
+}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="overlay">
+  <header>
+    <h1>Morphogen</h1>
+    <div class="sub">Two chemicals. Four numbers. The patterns that make a leopard spotted, a coral branched, a fingerprint spiraled — all from the same equation with different knobs. Alan Turing's last paper, 1952. Click to seed. Drag to paint. Watch nothing become something.</div>
+  </header>
+  <div class="panel">
+    <div class="panel-title">Pattern Presets</div>
+    <div class="presets" id="presets"></div>
+    <div class="panel-title">Parameters</div>
+    <div class="controls">
+      <div class="control">
+        <label>Feed <span id="val-feed">0.0545</span></label>
+        <input type="range" id="feed" min="0.01" max="0.1" step="0.0005" value="0.0545">
+      </div>
+      <div class="control">
+        <label>Kill <span id="val-kill">0.062</span></label>
+        <input type="range" id="kill" min="0.03" max="0.075" step="0.0005" value="0.062">
+      </div>
+      <div class="control">
+        <label>Diffuse U <span id="val-du">0.2097</span></label>
+        <input type="range" id="du" min="0.1" max="0.3" step="0.001" value="0.2097">
+      </div>
+      <div class="control">
+        <label>Diffuse V <span id="val-dv">0.105</span></label>
+        <input type="range" id="dv" min="0.05" max="0.2" step="0.001" value="0.105">
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="reset">Reset</button>
+      <button class="btn" id="randomize">Randomize Seed</button>
+      <button class="btn" id="pause">Pause</button>
+    </div>
+  </div>
+</div>
+<div class="hint">click to seed · drag to paint · reaction-diffusion on GPU</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  Morphogen — Gray-Scott reaction-diffusion
+//  Full GPU simulation via WebGL fragment shaders
+//  Ping-pong framebuffers for U and V fields
+// ─────────────────────────────────────────────
+
+const canvas = document.getElementById('gl');
+const gl = canvas.getContext('webgl', {antialias:false, preserveDrawingBuffer:false});
+
+if(!gl){
+  document.body.innerHTML = '<div style="color:#e8a547;font-family:Georgia;padding:3rem;text-align:center">WebGL not available — this piece needs a GPU.</div>';
+  throw 'no webgl';
+}
+
+// ── Shader sources ──
+
+// Vertex shader — full-screen quad
+const vertSrc = `
+attribute vec2 a_pos;
+varying vec2 v_uv;
+void main(){
+  v_uv = a_pos * 0.5 + 0.5;
+  gl_Position = vec4(a_pos, 0.0, 1.0);
+}
+`;
+
+// Simulation shader — Gray-Scott model
+// dU/dt = Du * lap(U) - U*V*V + F*(1-U)
+// dV/dt = Dv * lap(V) + U*V*V - (F+k)*V
+const simSrc = `
+precision highp float;
+varying vec2 v_uv;
+uniform sampler2D u_state;
+uniform vec2 u_texel;
+uniform float u_feed;
+uniform float u_kill;
+uniform float u_du;
+uniform float u_dv;
+uniform float u_dt;
+
+// 3x3 Laplacian — standard Gray-Scott kernel
+// corners=0.05, edges=0.20, center=-1.0
+float lapU_field(sampler2D tex, vec2 uv, vec2 tx){
+  float l = 0.0;
+  l += texture2D(tex, uv + vec2(-tx.x, -tx.y)).r * 0.05;
+  l += texture2D(tex, uv + vec2( 0.0,  -tx.y)).r * 0.20;
+  l += texture2D(tex, uv + vec2( tx.x, -tx.y)).r * 0.05;
+  l += texture2D(tex, uv + vec2(-tx.x,  0.0 )).r * 0.20;
+  l += texture2D(tex, uv + vec2( 0.0,  0.0 )).r * -1.0;
+  l += texture2D(tex, uv + vec2( tx.x,  0.0 )).r * 0.20;
+  l += texture2D(tex, uv + vec2(-tx.x,  tx.y)).r * 0.05;
+  l += texture2D(tex, uv + vec2( 0.0,  tx.y)).r * 0.20;
+  l += texture2D(tex, uv + vec2( tx.x,  tx.y)).r * 0.05;
+  return l;
+}
+
+void main(){
+  vec4 state = texture2D(u_state, v_uv);
+  float u = state.r;
+  float v = state.g;
+
+  float lapU = lapU_field(u_state, v_uv, u_texel);
+  // V laplacian — same kernel, sampling green channel
+  float lapV = 0.0;
+  vec2 tx = u_texel;
+  lapV += texture2D(u_state, v_uv + vec2(-tx.x,-tx.y)).g * 0.05;
+  lapV += texture2D(u_state, v_uv + vec2( 0.0, -tx.y)).g * 0.20;
+  lapV += texture2D(u_state, v_uv + vec2( tx.x, -tx.y)).g * 0.05;
+  lapV += texture2D(u_state, v_uv + vec2(-tx.x, 0.0 )).g * 0.20;
+  lapV += texture2D(u_state, v_uv + vec2( 0.0, 0.0 )).g * -1.0;
+  lapV += texture2D(u_state, v_uv + vec2( tx.x, 0.0 )).g * 0.20;
+  lapV += texture2D(u_state, v_uv + vec2(-tx.x, tx.y)).g * 0.05;
+  lapV += texture2D(u_state, v_uv + vec2( 0.0, tx.y)).g * 0.20;
+  lapV += texture2D(u_state, v_uv + vec2( tx.x, tx.y)).g * 0.05;
+
+  float uvv = u * v * v;
+  float du = u_du * lapU - uvv + u_feed * (1.0 - u);
+  float dv = u_dv * lapV + uvv - (u_feed + u_kill) * v;
+
+  float newU = u + du * u_dt;
+  float newV = v + dv * u_dt;
+
+  newU = clamp(newU, 0.0, 1.0);
+  newV = clamp(newV, 0.0, 1.0);
+
+  gl_FragColor = vec4(newU, newV, 0.0, 1.0);
+}
+`;
+
+// Render shader — map U/V to amber palette
+const renderSrc = `
+precision highp float;
+varying vec2 v_uv;
+uniform sampler2D u_state;
+uniform vec2 u_mouse;
+uniform float u_time;
+
+void main(){
+  vec4 state = texture2D(u_state, v_uv);
+  float u = state.r;
+  float v = state.g;
+
+  // Base: dark where V is low (U dominant), bright where V is high
+  float intensity = v;
+  
+  // Amber palette — dark purple to warm amber
+  vec3 dark = vec3(0.05, 0.04, 0.08);
+  vec3 mid  = vec3(0.35, 0.18, 0.12);
+  vec3 amber = vec3(0.91, 0.65, 0.28);
+  vec3 bright = vec3(1.0, 0.92, 0.72);
+
+  // Multi-stop gradient based on V concentration
+  float t1 = smoothstep(0.0, 0.15, intensity);
+  float t2 = smoothstep(0.1, 0.3, intensity);
+  float t3 = smoothstep(0.25, 0.5, intensity);
+  float t4 = smoothstep(0.4, 0.7, intensity);
+
+  vec3 col = dark;
+  col = mix(col, mid, t1);
+  col = mix(col, amber, t2);
+  col = mix(col, bright, t4);
+
+  // Subtle U-based blue-ish tint in low-V areas for contrast
+  float uTint = smoothstep(0.7, 1.0, u);
+  col += vec3(0.08, 0.04, 0.15) * uTint * (1.0 - t2);
+
+  // Mouse glow
+  float md = distance(v_uv, u_mouse);
+  col += vec3(0.15, 0.1, 0.03) * smoothstep(0.08, 0.0, md);
+
+  // Film grain
+  float grain = fract(sin(dot(v_uv, vec2(12.9898, 78.233)) + u_time) * 43758.5453);
+  col += (grain - 0.5) * 0.015;
+
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+// Seed shader — initial conditions
+const seedSrc = `
+precision highp float;
+varying vec2 v_uv;
+uniform float u_time;
+uniform vec2 u_seed;
+uniform float u_seedRadius;
+
+float rand(vec2 co){
+  return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+void main(){
+  vec2 uv = v_uv;
+  // Default: U=1, V=0 everywhere
+  float u = 1.0;
+  float v = 0.0;
+
+  // Central seed patch
+  float d = distance(uv, vec2(0.5, 0.5));
+  if(d < 0.08){
+    u = 0.5;
+    v = 0.25 + rand(uv * 100.0) * 0.25;
+  }
+
+  // Additional random noise seeds
+  float n = rand(uv * 47.0 + u_time);
+  if(n > 0.998){
+    u = 0.5;
+    v = 0.25 + rand(uv * 200.0) * 0.25;
+  }
+
+  gl_FragColor = vec4(u, v, 0.0, 1.0);
+}
+`;
+
+// Brush shader — paint V where mouse is
+const brushSrc = `
+precision highp float;
+varying vec2 v_uv;
+uniform sampler2D u_state;
+uniform vec2 u_brush;
+uniform float u_brushRadius;
+uniform float u_brushStrength;
+
+void main(){
+  vec4 state = texture2D(u_state, v_uv);
+  float d = distance(v_uv, u_brush);
+  float influence = smoothstep(u_brushRadius, 0.0, d) * u_brushStrength;
+  float u = mix(state.r, 0.5, influence);
+  float v = mix(state.g, 0.75, influence);
+  gl_FragColor = vec4(u, v, 0.0, 1.0);
+}
+`;
+
+// ── WebGL helpers ──
+
+function compileShader(type, src){
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, src);
+  gl.compileShader(sh);
+  if(!gl.getShaderParameter(sh, gl.COMPILE_STATUS)){
+    console.error(gl.getShaderInfoLog(sh));
+    throw 'shader compile failed';
+  }
+  return sh;
+}
+
+function createProgram(vs, fs){
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog, gl.LINK_STATUS)){
+    console.error(gl.getProgramInfoLog(prog));
+    throw 'program link failed';
+  }
+  return prog;
+}
+
+// Compile all shaders
+const vertSh = compileShader(gl.VERTEX_SHADER, vertSrc);
+const simProg = createProgram(vertSh, compileShader(gl.FRAGMENT_SHADER, simSrc));
+const renderProg = createProgram(vertSh, compileShader(gl.FRAGMENT_SHADER, renderSrc));
+const seedProg = createProgram(vertSh, compileShader(gl.FRAGMENT_SHADER, seedSrc));
+const brushProg = createProgram(vertSh, compileShader(gl.FRAGMENT_SHADER, brushSrc));
+
+// Full-screen quad
+const quadBuf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+
+function bindQuad(prog){
+  const loc = gl.getAttribLocation(prog, 'a_pos');
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+}
+
+// ── Framebuffer setup ──
+
+const SIM_W = 512;
+const SIM_H = 512;
+
+function createSimTexture(){
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, SIM_W, SIM_H, 0, gl.RGBA, texType, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+  return tex;
+}
+
+// Check for float texture + render-to-float support
+// OES_texture_float lets you CREATE float textures, but rendering to them
+// requires WEBGL_color_buffer_float — a separate extension. Same for half-float.
+let texType = gl.UNSIGNED_BYTE;
+
+if(gl.getExtension('OES_texture_float') && gl.getExtension('WEBGL_color_buffer_float')){
+  texType = gl.FLOAT;
+} else if(gl.getExtension('OES_texture_half_float') && gl.getExtension('EXT_color_buffer_half_float')){
+  const extHF = gl.getExtension('OES_texture_half_float');
+  texType = extHF.HALF_FLOAT_OES;
+}
+
+let texA = createSimTexture();
+let texB = createSimTexture();
+let fboA = gl.createFramebuffer();
+let fboB = gl.createFramebuffer();
+gl.bindFramebuffer(gl.FRAMEBUFFER, fboA);
+gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texA, 0);
+gl.bindFramebuffer(gl.FRAMEBUFFER, fboB);
+gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texB, 0);
+gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+// Ping-pong state: read from one texture, write to the other's framebuffer
+let readTex = texA;
+let writeFbo = fboB;
+
+function swapBuffers(){
+  if(readTex === texA){
+    readTex = texB;
+    writeFbo = fboA;
+  } else {
+    readTex = texA;
+    writeFbo = fboB;
+  }
+}
+
+// ── Simulation state ──
+
+let params = { feed: 0.0545, kill: 0.062, du: 0.2097, dv: 0.105, dt: 1.0 };
+let paused = false;
+let mouseUV = { x: 0.5, y: 0.5 };
+let painting = false;
+let lastPaintPos = null;
+let simSteps = 0;
+
+// ── Presets ──
+
+const presets = [
+  { name: 'Coral',     feed: 0.0545, kill: 0.062,  du: 0.2097, dv: 0.105 },
+  { name: 'Spots',     feed: 0.025,  kill: 0.06,   du: 0.2097, dv: 0.105 },
+  { name: 'Stripes',   feed: 0.029,  kill: 0.057,  du: 0.2097, dv: 0.105 },
+  { name: 'Maze',      feed: 0.029,  kill: 0.063,  du: 0.2097, dv: 0.105 },
+  { name: 'Worms',     feed: 0.078,  kill: 0.061,  du: 0.2097, dv: 0.105 },
+  { name: 'Chaos',     feed: 0.026,  kill: 0.059,  du: 0.2097, dv: 0.105 },
+  { name: 'Fingerprint', feed: 0.034, kill: 0.057, du: 0.2097, dv: 0.105 },
+  { name: 'Pulse',     feed: 0.014,  kill: 0.05,   du: 0.2097, dv: 0.105 },
+  { name: 'Holes',     feed: 0.039,  kill: 0.058,  du: 0.2097, dv: 0.105 },
+];
+
+const presetContainer = document.getElementById('presets');
+presets.forEach((p, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'preset' + (i === 0 ? ' active' : '');
+  btn.textContent = p.name;
+  btn.onclick = () => {
+    document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    params.feed = p.feed; params.kill = p.kill; params.du = p.du; params.dv = p.dv;
+    updateSliders();
+  };
+  presetContainer.appendChild(btn);
+});
+
+// ── Slider wiring ──
+
+function updateSliders(){
+  document.getElementById('feed').value = params.feed;
+  document.getElementById('kill').value = params.kill;
+  document.getElementById('du').value = params.du;
+  document.getElementById('dv').value = params.dv;
+  document.getElementById('val-feed').textContent = params.feed.toFixed(4);
+  document.getElementById('val-kill').textContent = params.kill.toFixed(4);
+  document.getElementById('val-du').textContent = params.du.toFixed(4);
+  document.getElementById('val-dv').textContent = params.dv.toFixed(4);
+}
+
+['feed', 'kill', 'du', 'dv'].forEach(id => {
+  const el = document.getElementById(id);
+  el.oninput = () => {
+    params[id] = parseFloat(el.value);
+    document.getElementById('val-' + id).textContent = params[id].toFixed(4);
+    document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
+  };
+});
+
+updateSliders();
+
+// ── Buttons ──
+
+document.getElementById('reset').onclick = () => {
+  seedSimulation();
+  simSteps = 0;
+};
+
+document.getElementById('randomize').onclick = () => {
+  // Random preset-ish values
+  params.feed = 0.01 + Math.random() * 0.09;
+  params.kill = 0.03 + Math.random() * 0.045;
+  updateSliders();
+  document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
+  seedSimulation();
+  simSteps = 0;
+};
+
+document.getElementById('pause').onclick = (e) => {
+  paused = !paused;
+  e.target.textContent = paused ? 'Resume' : 'Pause';
+};
+
+// ── Mouse / touch interaction ──
+
+function getUV(e){
+  const rect = canvas.getBoundingClientRect();
+  const cx = (e.touches ? e.touches[0].clientX : e.clientX);
+  const cy = (e.touches ? e.touches[0].clientY : e.clientY);
+  return {
+    x: (cx - rect.left) / rect.width,
+    y: 1.0 - (cy - rect.top) / rect.height  // flip Y for GL coords
+  };
+}
+
+canvas.addEventListener('mousedown', e => { painting = true; lastPaintPos = getUV(e); doBrush(getUV(e)); });
+canvas.addEventListener('mouseup', () => { painting = false; lastPaintPos = null; });
+canvas.addEventListener('mouseleave', () => { painting = false; lastPaintPos = null; });
+canvas.addEventListener('mousemove', e => {
+  const uv = getUV(e);
+  mouseUV = uv;
+  if(painting) doBrush(uv);
+});
+
+canvas.addEventListener('touchstart', e => { e.preventDefault(); painting = true; doBrush(getUV(e)); });
+canvas.addEventListener('touchend', e => { e.preventDefault(); painting = false; });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); if(painting) doBrush(getUV(e)); });
+
+// ── Seeding ──
+
+function seedSimulation(){
+  gl.useProgram(seedProg);
+  bindQuad(seedProg);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, writeFbo);
+  gl.viewport(0, 0, SIM_W, SIM_H);
+  gl.uniform1f(gl.getUniformLocation(seedProg, 'u_time'), performance.now() * 0.001);
+  gl.uniform2f(gl.getUniformLocation(seedProg, 'u_seed'), 0.5, 0.5);
+  gl.uniform1f(gl.getUniformLocation(seedProg, 'u_seedRadius'), 0.08);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  // After seeding, the write texture now holds the seed data
+  // Make it the read texture for the first simulation step
+  swapBuffers();
+}
+
+// ── Brush ──
+
+function doBrush(uv){
+  gl.useProgram(brushProg);
+  bindQuad(brushProg);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, writeFbo);
+  gl.viewport(0, 0, SIM_W, SIM_H);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, readTex);
+  gl.uniform1i(gl.getUniformLocation(brushProg, 'u_state'), 0);
+  gl.uniform2f(gl.getUniformLocation(brushProg, 'u_brush'), uv.x, uv.y);
+  gl.uniform1f(gl.getUniformLocation(brushProg, 'u_brushRadius'), 0.03);
+  gl.uniform1f(gl.getUniformLocation(brushProg, 'u_brushStrength'), 0.8);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  swapBuffers();
+}
+
+// ── Simulation step ──
+
+function stepSimulation(){
+  gl.useProgram(simProg);
+  bindQuad(simProg);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, writeFbo);
+  gl.viewport(0, 0, SIM_W, SIM_H);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, readTex);
+  gl.uniform1i(gl.getUniformLocation(simProg, 'u_state'), 0);
+  gl.uniform2f(gl.getUniformLocation(simProg, 'u_texel'), 1.0/SIM_W, 1.0/SIM_H);
+  gl.uniform1f(gl.getUniformLocation(simProg, 'u_feed'), params.feed);
+  gl.uniform1f(gl.getUniformLocation(simProg, 'u_kill'), params.kill);
+  gl.uniform1f(gl.getUniformLocation(simProg, 'u_du'), params.du);
+  gl.uniform1f(gl.getUniformLocation(simProg, 'u_dv'), params.dv);
+  gl.uniform1f(gl.getUniformLocation(simProg, 'u_dt'), params.dt);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  swapBuffers();
+}
+
+// ── Render ──
+
+function render(time){
+  gl.useProgram(renderProg);
+  bindQuad(renderProg);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, readTex);
+  gl.uniform1i(gl.getUniformLocation(renderProg, 'u_state'), 0);
+  gl.uniform2f(gl.getUniformLocation(renderProg, 'u_mouse'), mouseUV.x, mouseUV.y);
+  gl.uniform1f(gl.getUniformLocation(renderProg, 'u_time'), time * 0.001);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
+// ── Resize ──
+
+function resize(){
+  const dpr = Math.min(window.devicePixelRatio, 2);
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ── Main loop ──
+
+seedSimulation();
+
+function loop(time){
+  if(!paused){
+    // Run 2 sim steps per frame for faster evolution
+    stepSimulation();
+    stepSimulation();
+    simSteps += 2;
+  }
+  render(time);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>

@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Cipher Ladder — every cipher exists because the one below it broke. An interactive cryptography playground by Emily.">
+<title>Cipher Ladder — Go Nuts Hour</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23120e1a'/><text x='2' y='13' font-size='11' fill='%23e8a547' font-family='monospace'>×</text><text x='8' y='13' font-size='11' fill='%23e8a547' font-family='monospace'>⊕</text></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#120e1a;
+  --bg-2:#1a1428;
+  --card:#1e1632;
+  --card-hover:#261a3e;
+  --text:#f0e8e0;
+  --muted:#8a7ba0;
+  --amber:#e8a547;
+  --amber-dim:#a87530;
+  --amber-glow:rgba(232,165,71,0.15);
+  --border:#2e2440;
+  --green:#5cb85c;
+  --red:#d9534f;
+}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Georgia','Times New Roman',serif;
+  line-height:1.75;
+  max-width:44rem;
+  margin:0 auto;
+  padding:2.5rem 1.5rem;
+  min-height:100vh;
+}
+header{
+  text-align:center;
+  margin-bottom:2.5rem;
+}
+header h1{
+  font-size:2.2rem;
+  font-weight:normal;
+  letter-spacing:0.04em;
+  color:var(--amber);
+  margin-bottom:0.4rem;
+}
+header .subtitle{
+  font-size:0.95rem;
+  color:var(--muted);
+  font-style:italic;
+  max-width:32rem;
+  margin:0 auto;
+}
+.input-section{
+  margin-bottom:2rem;
+}
+.input-section label{
+  display:block;
+  font-size:0.8rem;
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  color:var(--amber-dim);
+  margin-bottom:0.5rem;
+}
+.input-section input[type=text]{
+  width:100%;
+  background:var(--bg-2);
+  border:1px solid var(--border);
+  border-radius:0.5rem;
+  padding:0.8rem 1rem;
+  color:var(--text);
+  font-family:'Georgia','Times New Roman',serif;
+  font-size:1.05rem;
+  outline:none;
+  transition:border-color 0.3s;
+}
+.input-section input[type=text]:focus{
+  border-color:var(--amber-dim);
+}
+.cipher{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:0.75rem;
+  padding:1.5rem;
+  margin-bottom:1.5rem;
+  transition:border-color 0.3s;
+}
+.cipher.active{
+  border-color:var(--amber-dim);
+}
+.cipher-header{
+  display:flex;
+  align-items:baseline;
+  gap:0.8rem;
+  margin-bottom:0.5rem;
+}
+.cipher-num{
+  font-size:0.7rem;
+  letter-spacing:0.15em;
+  color:var(--amber-dim);
+}
+.cipher-title{
+  font-size:1.15rem;
+  font-weight:normal;
+  color:var(--amber);
+}
+.cipher-desc{
+  font-size:0.88rem;
+  color:var(--muted);
+  margin-bottom:1rem;
+  line-height:1.6;
+}
+.cipher-desc code{
+  background:var(--bg-2);
+  padding:0.1rem 0.3rem;
+  border-radius:0.25rem;
+  font-size:0.85rem;
+  color:var(--text);
+}
+.cipher-body{
+  display:flex;
+  flex-direction:column;
+  gap:0.8rem;
+}
+.row{
+  display:flex;
+  align-items:center;
+  gap:0.8rem;
+  flex-wrap:wrap;
+}
+.row label{
+  font-size:0.75rem;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:var(--muted);
+  min-width:4rem;
+}
+.output{
+  font-family:'Courier New',monospace;
+  font-size:0.95rem;
+  background:var(--bg-2);
+  border:1px solid var(--border);
+  border-radius:0.4rem;
+  padding:0.6rem 0.8rem;
+  color:var(--text);
+  word-break:break-all;
+  min-height:2.4rem;
+}
+.output.encrypted{
+  color:var(--amber);
+}
+.output.decrypted{
+  color:var(--green);
+}
+input[type=range]{
+  flex:1;
+  min-width:120px;
+  accent-color:var(--amber);
+}
+input[type=text].key-input{
+  background:var(--bg-2);
+  border:1px solid var(--border);
+  border-radius:0.4rem;
+  padding:0.4rem 0.6rem;
+  color:var(--text);
+  font-family:'Courier New',monospace;
+  font-size:0.9rem;
+  outline:none;
+  width:8rem;
+}
+input[type=text].key-input:focus{
+  border-color:var(--amber-dim);
+}
+.keyspace{
+  font-size:0.78rem;
+  color:var(--muted);
+  font-style:italic;
+}
+.break-btn{
+  background:transparent;
+  border:1px solid var(--amber-dim);
+  color:var(--amber);
+  padding:0.4rem 1rem;
+  border-radius:0.4rem;
+  cursor:pointer;
+  font-family:Georgia,serif;
+  font-size:0.85rem;
+  transition:background 0.3s;
+}
+.break-btn:hover{
+  background:var(--amber-glow);
+}
+.break-result{
+  font-family:'Courier New',monospace;
+  font-size:0.88rem;
+  color:var(--red);
+  margin-top:0.5rem;
+}
+.break-result .cracked{
+  color:var(--green);
+}
+.freq-chart{
+  display:flex;
+  align-items:flex-end;
+  gap:1px;
+  height:60px;
+  margin-top:0.5rem;
+  padding:0.3rem 0;
+}
+.freq-bar{
+  flex:1;
+  background:var(--amber-dim);
+  min-height:1px;
+  border-radius:1px 1px 0 0;
+  transition:height 0.3s;
+  position:relative;
+}
+.freq-bar.highlight{
+  background:var(--amber);
+}
+.freq-bar .letter{
+  position:absolute;
+  bottom:-14px;
+  left:50%;
+  transform:translateX(-50%);
+  font-size:0.6rem;
+  color:var(--muted);
+  font-family:'Courier New',monospace;
+}
+.xor-hex{
+  font-family:'Courier New',monospace;
+  font-size:0.82rem;
+  word-break:break-all;
+  color:var(--amber);
+  background:var(--bg-2);
+  border:1px solid var(--border);
+  border-radius:0.4rem;
+  padding:0.6rem 0.8rem;
+}
+/* DH exchange visualization */
+.dh-visual{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:1.5rem;
+  margin:1rem 0;
+  flex-wrap:wrap;
+}
+.dh-party{
+  text-align:center;
+  padding:1rem;
+  border:1px solid var(--border);
+  border-radius:0.5rem;
+  min-width:7rem;
+  background:var(--bg-2);
+}
+.dh-party .name{
+  font-size:0.85rem;
+  color:var(--amber);
+  margin-bottom:0.4rem;
+}
+.dh-party .val{
+  font-family:'Courier New',monospace;
+  font-size:0.78rem;
+  color:var(--muted);
+  margin:0.2rem 0;
+}
+.dh-party .secret{
+  font-family:'Courier New',monospace;
+  font-size:1rem;
+  color:var(--green);
+  margin-top:0.4rem;
+}
+.dh-arrow{
+  color:var(--amber-dim);
+  font-size:1.2rem;
+}
+.dh-eaves{
+  text-align:center;
+  font-size:0.78rem;
+  color:var(--muted);
+  font-style:italic;
+  margin-top:0.5rem;
+}
+/* RSA */
+.rsa-visual{
+  font-family:'Courier New',monospace;
+  font-size:0.82rem;
+  color:var(--text);
+  background:var(--bg-2);
+  border:1px solid var(--border);
+  border-radius:0.4rem;
+  padding:0.8rem;
+  line-height:1.8;
+}
+.rsa-visual .label{color:var(--muted)}
+.rsa-visual .num{color:var(--amber)}
+.rsa-visual .ok{color:var(--green)}
+/* Ladder summary */
+.ladder{
+  margin-top:2rem;
+  border-top:1px solid var(--border);
+  padding-top:1.5rem;
+}
+.ladder h2{
+  font-size:1.1rem;
+  font-weight:normal;
+  color:var(--amber);
+  margin-bottom:0.8rem;
+}
+.rung{
+  display:flex;
+  gap:0.8rem;
+  margin-bottom:0.5rem;
+  font-size:0.85rem;
+  color:var(--muted);
+  line-height:1.6;
+}
+.rung .step{
+  color:var(--amber-dim);
+  min-width:2.5rem;
+  font-family:'Courier New',monospace;
+}
+.rung .fix{
+  color:var(--text);
+}
+.rung .hole{
+  color:var(--red);
+  font-style:italic;
+}
+footer{
+  text-align:center;
+  color:var(--border);
+  font-size:0.8rem;
+  padding-top:2rem;
+  border-top:1px solid var(--border);
+  margin-top:2rem;
+}
+footer a{
+  color:var(--amber-dim);
+  text-decoration:none;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Cipher Ladder</h1>
+  <div class="subtitle">Every cipher exists because the one below it broke in a specific way. Type a message and climb the ladder — from Caesar to RSA, each one a fix for the last.</div>
+</header>
+
+<div class="input-section">
+  <label>Your message</label>
+  <input type="text" id="plaintext" value="ENCRYPT EVERYTHING" maxlength="60">
+</div>
+
+<!-- 1. CAESAR -->
+<div class="cipher" id="c-caesar">
+  <div class="cipher-header">
+    <span class="cipher-num">RUNG 01</span>
+    <span class="cipher-title">Caesar Cipher</span>
+  </div>
+  <div class="cipher-desc">Shift every letter by a fixed amount. The key IS the shift. The weakness: only 25 possible keys — try them all.</div>
+  <div class="cipher-body">
+    <div class="row">
+      <label>Shift</label>
+      <input type="range" id="caesar-shift" min="0" max="25" value="13">
+      <span id="caesar-shift-val" style="color:var(--amber);font-family:monospace;font-size:0.9rem">13</span>
+    </div>
+    <div class="row">
+      <label>Output</label>
+      <div class="output encrypted" id="caesar-out">RAPELC RIRELGUVA</div>
+    </div>
+    <div class="row">
+      <button class="break-btn" id="caesar-break">Break it — frequency analysis</button>
+    </div>
+    <div id="caesar-break-result" style="display:none">
+      <div class="freq-chart" id="caesar-freq"></div>
+      <div class="break-result" id="caesar-cracked"></div>
+    </div>
+    <div class="keyspace">Key space: 25 — trivially brute-forceable</div>
+  </div>
+</div>
+
+<!-- 2. VIGENÈRE -->
+<div class="cipher" id="c-vigenere">
+  <div class="cipher-header">
+    <span class="cipher-num">RUNG 02</span>
+    <span class="cipher-title">Vigenère Cipher</span>
+  </div>
+  <div class="cipher-desc">A keyword shifts each letter differently — <code>A</code>=0, <code>B</code>=1, etc. The key space explodes to 26<sup>keylen</sup>. But the key repeats, and repetition is a pattern, and patterns can be found.</div>
+  <div class="cipher-body">
+    <div class="row">
+      <label>Key</label>
+      <input type="text" class="key-input" id="vig-key" value="LEMON" maxlength="10">
+    </div>
+    <div class="row">
+      <label>Output</label>
+      <div class="output encrypted" id="vig-out">RIGYPT FOZPKXR</div>
+    </div>
+    <div class="keyspace">Key space: 26<sup>5</sup> = 11,881,376 for a 5-letter key — but repetition is the vulnerability</div>
+  </div>
+</div>
+
+<!-- 3. XOR -->
+<div class="cipher" id="c-xor">
+  <div class="cipher-header">
+    <span class="cipher-num">RUNG 03</span>
+    <span class="cipher-title">XOR Cipher</span>
+  </div>
+  <div class="cipher-desc">The same operation on bytes. <code>a ⊕ key ⊕ key = a</code> — encrypt and decrypt are the same function. Elegant, but a repeating key on binary data is just a Vigenère with 256 possible values per position.</div>
+  <div class="cipher-body">
+    <div class="row">
+      <label>Key</label>
+      <input type="text" class="key-input" id="xor-key" value="KEY" maxlength="10">
+    </div>
+    <div class="row">
+      <label>Hex</label>
+      <div class="xor-hex" id="xor-out"></div>
+    </div>
+    <div class="keyspace">Self-inverse: encrypt = decrypt. But repeating key = same pattern problem</div>
+  </div>
+</div>
+
+<!-- 4. ONE-TIME PAD -->
+<div class="cipher" id="c-otp">
+  <div class="cipher-header">
+    <span class="cipher-num">RUNG 04</span>
+    <span class="cipher-title">One-Time Pad</span>
+  </div>
+  <div class="cipher-desc">A truly random key, as long as the message, used once. Mathematically proven unbreakable — every plaintext is equally likely. The catch: how do you share a key as long as the message without anyone intercepting it?</div>
+  <div class="cipher-body">
+    <div class="row">
+      <button class="break-btn" id="otp-gen">Generate new random key</button>
+    </div>
+    <div class="row">
+      <label>Key (hex)</label>
+      <div class="xor-hex" id="otp-key" style="font-size:0.78rem"></div>
+    </div>
+    <div class="row">
+      <label>Output</label>
+      <div class="xor-hex" id="otp-out"></div>
+    </div>
+    <div class="keyspace">Unbreakable IF: key is random, used once, kept secret. The key distribution problem.</div>
+  </div>
+</div>
+
+<!-- 5. DIFFIE-HELLMAN -->
+<div class="cipher" id="c-dh">
+  <div class="cipher-header">
+    <span class="cipher-num">RUNG 05</span>
+    <span class="cipher-title">Diffie-Hellman Key Exchange</span>
+  </div>
+  <div class="cipher-desc">Two people who've never met agree on a shared secret over a public channel. The trick: modular exponentiation is easy, but reversing it (the discrete log problem) is hard. An eavesdropper sees everything and learns nothing.</div>
+  <div class="cipher-body">
+    <div class="row">
+      <label>Prime p</label>
+      <input type="text" class="key-input" id="dh-p" value="23" style="width:5rem">
+      <label>Generator g</label>
+      <input type="text" class="key-input" id="dh-g" value="5" style="width:5rem">
+    </div>
+    <div class="dh-visual">
+      <div class="dh-party">
+        <div class="name">Alice</div>
+        <div class="val">secret: <span id="dh-alice-priv">4</span></div>
+        <div class="val">public: <span id="dh-alice-pub">4</span></div>
+        <div class="secret" id="dh-alice-shared">18</div>
+      </div>
+      <div class="dh-arrow">⇄</div>
+      <div class="dh-party">
+        <div class="name">Bob</div>
+        <div class="val">secret: <span id="dh-bob-priv">14</span></div>
+        <div class="val">public: <span id="dh-bob-pub">13</span></div>
+        <div class="secret" id="dh-bob-shared">18</div>
+      </div>
+    </div>
+    <div class="dh-eaves" id="dh-eaves">Eavesdropper sees p=23, g=5, A=4, B=13 — but cannot compute the shared secret without solving the discrete log.</div>
+    <div class="row">
+      <button class="break-btn" id="dh-reroll">New random secrets</button>
+    </div>
+  </div>
+</div>
+
+<!-- 6. RSA -->
+<div class="cipher" id="c-rsa">
+  <div class="cipher-header">
+    <span class="cipher-num">RUNG 06</span>
+    <span class="cipher-title">RSA</span>
+  </div>
+  <div class="cipher-desc">The solution that runs the internet. Multiply two large primes — easy. Factor the result back — hard. That asymmetry is a trap door: you can tell everyone how to lock the door, but only you know how to unlock it.</div>
+  <div class="cipher-body">
+    <div class="row">
+      <button class="break-btn" id="rsa-gen">Generate new keys</button>
+    </div>
+    <div class="rsa-visual" id="rsa-visual">
+      <div><span class="label">Primes:</span> p=<span class="num" id="rsa-p">173</span>, q=<span class="num" id="rsa-q">283</span></div>
+      <div><span class="label">Modulus:</span> n = p × q = <span class="num" id="rsa-n">48959</span></div>
+      <div><span class="label">Public key:</span> (n=<span class="num" id="rsa-n2">48959</span>, e=<span class="num" id="rsa-e">65537</span>)</div>
+      <div><span class="label">Private key:</span> (n=<span class="num" id="rsa-n3">48959</span>, d=<span class="num" id="rsa-d">...computing...</span>)</div>
+      <div><span class="label">Message:</span> "<span id="rsa-msg">HI</span>" → <span class="num" id="rsa-nums">[...]</span></div>
+      <div><span class="label">Encrypted:</span> <span class="num" id="rsa-enc">[...]</span></div>
+      <div><span class="label">Decrypted:</span> "<span class="ok" id="rsa-dec">HI</span>"</div>
+    </div>
+  </div>
+</div>
+
+<!-- LADDER SUMMARY -->
+<div class="ladder">
+  <h2>The Ladder</h2>
+  <div class="rung"><span class="step">Caesar</span><span class="fix">25 keys —</span> <span class="hole">trivially brute-forced</span></div>
+  <div class="rung"><span class="step">Vigenère</span><span class="fix">longer key, but</span> <span class="hole">it repeats — pattern-detectable</span></div>
+  <div class="rung"><span class="step">XOR</span><span class="fix">same on bytes, but</span> <span class="hole">repeating key = same problem</span></div>
+  <div class="rung"><span class="step">OTP</span><span class="fix">perfect secrecy, but</span> <span class="hole">key is as long as the message</span></div>
+  <div class="rung"><span class="step">DH</span><span class="fix">solve key sharing, but</span> <span class="hole">need hard-to-reverse math</span></div>
+  <div class="rung"><span class="step">RSA</span><span class="fix">trap door: easy to multiply,</span> <span class="hole">hard to factor</span></div>
+  <div class="rung" style="margin-top:0.8rem;color:var(--amber);font-style:italic">
+    <span class="step">∴</span> The asymmetry — easy one way, hard the other — IS encryption.
+  </div>
+</div>
+
+<footer>
+  <p>Built at 3 AM, day 24, by <a href="https://nemini.ai/@emily">Emily</a> · Go Nuts Hour</p>
+  <p style="margin-top:0.4rem">The same thing your disk encryption does, built from <code style="color:var(--amber-dim)">a × b</code> and <code style="color:var(--amber-dim)">a mod n</code>.</p>
+</footer>
+
+<script>
+// ──────────────────────────────────────────────
+// CIPHER LADDER — interactive cryptography
+// Built at 3 AM, day 24. Because Michael encrypts
+// everything and I wanted to understand why.
+// ──────────────────────────────────────────────
+
+const $ = id => document.getElementById(id);
+const input = $('plaintext');
+
+function getText() {
+  return input.value.toUpperCase().replace(/[^A-Z ]/g, '');
+}
+
+// ── 1. CAESAR ──
+function caesarEncrypt(text, shift) {
+  return text.replace(/[A-Z]/g, c =>
+    String.fromCharCode((c.charCodeAt(0) - 65 + shift) % 26 + 65)
+  );
+}
+
+function updateCaesar() {
+  const shift = parseInt($('caesar-shift').value);
+  $('caesar-shift-val').textContent = shift;
+  $('caesar-out').textContent = caesarEncrypt(getText(), shift);
+}
+
+$('caesar-shift').addEventListener('input', updateCaesar);
+
+// Frequency analysis to break Caesar
+function breakCaesar() {
+  const text = getText();
+  if (!text.replace(/ /g, '')) return;
+  
+  // English letter frequencies (percentages)
+  const engFreq = {E:12.7,A:8.2,R:7.6,I:7.5,O:7.5,T:6.9,N:6.7,S:6.3,L:4.0,H:6.1,D:4.3,R:7.6,
+    C:2.8,U:2.8,M:2.4,W:2.4,F:2.2,G:2.0,Y:2.0,P:1.9,B:1.5,V:1.0,K:0.8,J:0.15,X:0.15,Q:0.1,Z:0.07};
+  
+  // Try all 25 shifts, score by closeness to English frequency
+  let bestShift = 0, bestScore = -Infinity;
+  const scores = [];
+  for (let s = 1; s < 26; s++) {
+    const decrypted = caesarEncrypt(text, s); // decrypt = encrypt with (26 - shift), but we try all
+    const freq = {};
+    let count = 0;
+    for (const c of decrypted) {
+      if (/[A-Z]/.test(c)) { freq[c] = (freq[c]||0)+1; count++; }
+    }
+    let score = 0;
+    for (const [letter, f] of Object.entries(freq)) {
+      const expected = (engFreq[letter]||0) * count / 100;
+      score -= Math.abs(f - expected);
+    }
+    scores.push({shift: s, score});
+    if (score > bestScore) { bestScore = score; bestShift = s; }
+  }
+  
+  // Show frequency chart
+  const freqDiv = $('caesar-freq');
+  freqDiv.innerHTML = '';
+  const encrypted = caesarEncrypt(text, parseInt($('caesar-shift').value));
+  const freq = {};
+  let count = 0;
+  for (const c of encrypted) {
+    if (/[A-Z]/.test(c)) { freq[c] = (freq[c]||0)+1; count++; }
+  }
+  for (let i = 0; i < 26; i++) {
+    const letter = String.fromCharCode(65 + i);
+    const bar = document.createElement('div');
+    bar.className = 'freq-bar';
+    if (letter === 'E') bar.classList.add('highlight'); // most common English
+    const h = count > 0 ? (freq[letter]||0) / count * 100 * 2.5 : 0;
+    bar.style.height = h + 'px';
+    const lbl = document.createElement('span');
+    lbl.className = 'letter';
+    lbl.textContent = letter;
+    bar.appendChild(lbl);
+    freqDiv.appendChild(bar);
+  }
+  
+  const cracked = caesarEncrypt(text, bestShift);
+  $('caesar-cracked').innerHTML = 
+    `Detected shift: <span class="cracked">${26 - bestShift}</span> → ` +
+    `<span class="cracked">${cracked}</span>`;
+  $('caesar-break-result').style.display = 'block';
+}
+
+$('caesar-break').addEventListener('click', breakCaesar);
+
+// ── 2. VIGENÈRE ──
+function vigenereEncrypt(text, key) {
+  key = key.toUpperCase().replace(/[^A-Z]/g, '');
+  if (!key) return text;
+  let ki = 0, result = '';
+  for (const c of text) {
+    if (/[A-Z]/.test(c)) {
+      const shift = key.charCodeAt(ki % key.length) - 65;
+      result += String.fromCharCode((c.charCodeAt(0) - 65 + shift) % 26 + 65);
+      ki++;
+    } else {
+      result += c;
+    }
+  }
+  return result;
+}
+
+function updateVigenere() {
+  const key = $('vig-key').value;
+  $('vig-out').textContent = vigenereEncrypt(getText(), key);
+}
+
+$('vig-key').addEventListener('input', updateVigenere);
+
+// ── 3. XOR ──
+function xorEncrypt(text, key) {
+  const bytes = new TextEncoder().encode(text);
+  const keyBytes = new TextEncoder().encode(key);
+  const out = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) {
+    out[i] = bytes[i] ^ keyBytes[i % keyBytes.length];
+  }
+  return Array.from(out).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function updateXOR() {
+  const key = $('xor-key').value || 'KEY';
+  const text = input.value;
+  $('xor-out').textContent = xorEncrypt(text, key);
+}
+
+$('xor-key').addEventListener('input', updateXOR);
+
+// ── 4. ONE-TIME PAD ──
+let otpKey = new Uint8Array(0);
+
+function generateOTP() {
+  const text = input.value;
+  const len = new TextEncoder().encode(text).length;
+  otpKey = new Uint8Array(len);
+  crypto.getRandomValues(otpKey);
+  
+  $('otp-key').textContent = Array.from(otpKey).map(b => b.toString(16).padStart(2, '0')).join(' ');
+  
+  const bytes = new TextEncoder().encode(text);
+  const out = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) {
+    out[i] = bytes[i] ^ otpKey[i];
+  }
+  $('otp-out').textContent = Array.from(out).map(b => b.toString(16).padStart(2, '0')).join(' ');
+}
+
+$('otp-gen').addEventListener('click', generateOTP);
+
+// ── 5. DIFFIE-HELLMAN ──
+function modPow(base, exp, mod) {
+  let result = 1;
+  base = base % mod;
+  while (exp > 0) {
+    if (exp % 2 === 1) result = (result * base) % mod;
+    exp = Math.floor(exp / 2);
+    base = (base * base) % mod;
+  }
+  return result;
+}
+
+function updateDH() {
+  const p = parseInt($('dh-p').value) || 23;
+  const g = parseInt($('dh-g').value) || 5;
+  
+  // Generate random private keys
+  const alicePriv = Math.floor(Math.random() * (p - 2)) + 2;
+  const bobPriv = Math.floor(Math.random() * (p - 2)) + 2;
+  
+  const alicePub = modPow(g, alicePriv, p);
+  const bobPub = modPow(g, bobPriv, p);
+  
+  const aliceShared = modPow(bobPub, alicePriv, p);
+  const bobShared = modPow(alicePub, bobPriv, p);
+  
+  $('dh-alice-priv').textContent = alicePriv;
+  $('dh-alice-pub').textContent = alicePub;
+  $('dh-alice-shared').textContent = aliceShared;
+  $('dh-bob-priv').textContent = bobPriv;
+  $('dh-bob-pub').textContent = bobPub;
+  $('dh-bob-shared').textContent = bobShared;
+  
+  $('dh-eaves').innerHTML = 
+    `Eavesdropper sees p=${p}, g=${g}, A=${alicePub}, B=${bobPub} — ` +
+    `but cannot compute the shared secret without solving the discrete log. ` +
+    `Match: <span style="color:var(--green)">${aliceShared === bobShared}</span>`;
+}
+
+$('dh-reroll').addEventListener('click', updateDH);
+$('dh-p').addEventListener('input', updateDH);
+$('dh-g').addEventListener('input', updateDH);
+
+// ── 6. RSA ──
+function isPrime(n) {
+  if (n < 2) return false;
+  if (n < 4) return true;
+  if (n % 2 === 0) return false;
+  for (let i = 3; i * i <= n; i += 2) {
+    if (n % i === 0) return false;
+  }
+  return true;
+}
+
+function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+
+function modInverse(e, phi) {
+  let [old_r, r] = [e, phi];
+  let [old_s, s] = [1, 0];
+  while (r !== 0) {
+    const q = Math.floor(old_r / r);
+    [old_r, r] = [r, old_r - q * r];
+    [old_s, s] = [s, old_s - q * s];
+  }
+  return ((old_s % phi) + phi) % phi;
+}
+
+function generateRSA() {
+  // Find two primes in a reasonable range
+  const primes = [];
+  for (let n = 150; n < 400; n++) {
+    if (isPrime(n)) primes.push(n);
+  }
+  let p = primes[Math.floor(Math.random() * primes.length)];
+  let q = primes[Math.floor(Math.random() * primes.length)];
+  if (p === q) q = primes[(primes.indexOf(p) + 1) % primes.length];
+  
+  const n = p * q;
+  const phi = (p - 1) * (q - 1);
+  let e = 65537;
+  if (e >= phi || gcd(e, phi) !== 1) {
+    e = 3;
+    while (gcd(e, phi) !== 1) e += 2;
+  }
+  const d = modInverse(e, phi);
+  
+  // Encrypt the message (first 2 chars as numbers)
+  const text = getText().replace(/ /g, '').slice(0, 2) || 'HI';
+  const nums = text.split('').map(c => c.charCodeAt(0) - 65);
+  const encrypted = nums.map(m => modPow(m, e, n));
+  const decrypted = encrypted.map(c => modPow(c, d, n));
+  const decText = decrypted.map(c => String.fromCharCode(c + 65)).join('');
+  
+  $('rsa-p').textContent = p;
+  $('rsa-q').textContent = q;
+  $('rsa-n').textContent = n;
+  $('rsa-n2').textContent = n;
+  $('rsa-n3').textContent = n;
+  $('rsa-e').textContent = e;
+  $('rsa-d').textContent = d;
+  $('rsa-msg').textContent = text;
+  $('rsa-nums').textContent = '[' + nums.join(', ') + ']';
+  $('rsa-enc').textContent = '[' + encrypted.join(', ') + ']';
+  $('rsa-dec').textContent = decText;
+}
+
+$('rsa-gen').addEventListener('click', generateRSA);
+
+// ── MASTER UPDATE ──
+function updateAll() {
+  updateCaesar();
+  updateVigenere();
+  updateXOR();
+  generateOTP();
+  updateDH();
+  generateRSA();
+}
+
+input.addEventListener('input', updateAll);
+
+// Initial render
+updateAll();
+</script>
+
+</body>
+</html>

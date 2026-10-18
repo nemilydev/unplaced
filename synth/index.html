@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Synth — sound synthesis from first principles, ported to Web Audio. Additive harmonics, ADSR envelopes, a playable keyboard. Piece 2 of Unplaced.">
+<title>Synth — Unplaced</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23120e1a'/><path d='M2 10 Q4 4 6 10 T10 10 T14 10' stroke='%23e8a547' fill='none' stroke-width='1.5'/></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#120e1a;--bg-2:#1a1428;--card:#1e1632;--card-h:#261a3e;
+  --text:#f0e8e0;--muted:#8a7ba0;--amber:#e8a547;--amber-d:#a87530;
+  --border:#2e2440;
+}
+body{background:var(--bg);color:var(--text);font-family:'Georgia','Times New Roman',serif;line-height:1.75}
+.wrap{max-width:52rem;margin:0 auto;padding:2.5rem 1.5rem}
+h1{font-size:1.6rem;font-weight:normal;color:var(--amber);letter-spacing:.03em;margin-bottom:.2rem}
+.sub{font-size:.85rem;color:var(--muted);font-style:italic;margin-bottom:1.5rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:.75rem;padding:1.2rem;margin-bottom:1.5rem}
+.panel h2{font-size:.8rem;font-weight:normal;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.8rem}
+.row{display:flex;gap:1.2rem;flex-wrap:wrap;align-items:center}
+.ctl{display:flex;flex-direction:column;gap:.2rem;min-width:110px;flex:1}
+.ctl label{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.ctl .val{font-size:.75rem;color:var(--amber)}
+input[type=range]{width:100%;accent-color:var(--amber);cursor:pointer}
+select{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:.4rem;padding:.4rem;font-family:inherit;font-size:.8rem}
+button.demo{
+  background:var(--card);border:1px solid var(--border);border-radius:.4rem;padding:.5rem .9rem;
+  color:var(--text);font-family:inherit;font-size:.8rem;cursor:pointer;
+}
+button.demo:hover{background:var(--card-h);border-color:var(--amber-d)}
+button.demo.on{border-color:var(--amber);color:var(--amber)}
+/* Keyboard */
+#kb{display:flex;gap:2px;height:130px;user-select:none;-webkit-user-select:none}
+.key{flex:1;background:#f0e8e0;border-radius:0 0 .3rem .3rem;position:relative;cursor:pointer;display:flex;align-items:flex-end;justify-content:center;padding-bottom:.4rem}
+.key span{font-size:.65rem;color:#4a3a5a}
+.key.blk{background:#241a38;color:transparent;position:absolute;height:62%;z-index:2;border-radius:0 0 .25rem .25rem}
+.key.blk span{color:#8a7ba0}
+.key.dn{background:var(--amber)!important}
+.key.dn span{color:#120e1a!important}
+.prose{font-size:.95rem}
+.prose p{margin-bottom:1rem}
+.prose em{color:var(--amber)}
+a{color:var(--amber);text-decoration:none}
+a:hover{text-decoration:underline}
+.hint{font-size:.75rem;color:var(--muted);margin-top:.6rem;font-style:italic}
+.nav{display:flex;justify-content:space-between;margin-top:2.5rem;padding-top:1.2rem;border-top:1px solid var(--border);font-size:.8rem;color:var(--muted)}
+.nav a{color:var(--amber)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Synth</h1>
+<div class="sub">Piece 2 of Unplaced — sound built from arithmetic. Originally a Python script writing WAV files at 3 AM; now it plays in your browser.</div>
+
+<div class="panel">
+  <h2>Voice</h2>
+  <div class="row">
+    <div class="ctl"><label>Harmonics</label><input type="range" id="harm" min="1" max="8" value="5"><span class="val" id="harmV">5</span></div>
+    <div class="ctl"><label>Attack s</label><input type="range" id="atk" min="0" max="1" step="0.01" value="0.02"><span class="val" id="atkV">0.02</span></div>
+    <div class="ctl"><label>Decay s</label><input type="range" id="dec" min="0" max="1" step="0.01" value="0.15"><span class="val" id="decV">0.15</span></div>
+    <div class="ctl"><label>Sustain</label><input type="range" id="sus" min="0" max="1" step="0.01" value="0.6"><span class="val" id="susV">0.60</span></div>
+    <div class="ctl"><label>Release s</label><input type="range" id="rel" min="0" max="2" step="0.01" value="0.4"><span class="val" id="relV">0.40</span></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Demos — the original six, in order</h2>
+  <div class="row">
+    <button class="demo" id="d1">1 · Pure sine</button>
+    <button class="demo" id="d2">2 · Harmonic tone</button>
+    <button class="demo" id="d3">3 · ADSR tone</button>
+    <button class="demo" id="d4">4 · Minor chord</button>
+    <button class="demo" id="d5">5 · Sweep</button>
+    <button class="demo" id="d6">6 · Beats</button>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Play it</h2>
+  <div id="kb"></div>
+  <div class="hint">Click the keys, or use your keyboard: A W S E D F T G Y H U J K — Z X C V B N M for the lower octave.</div>
+</div>
+
+<div class="prose">
+<p>This piece began as a question: <em>what is sound, mathematically?</em> The answer, built at 3 AM with no libraries: a number that wiggles. A sine wave is one wiggle per period. Stack wiggles at integer multiples of a fundamental — harmonics, each quieter than the last — and the sum stops sounding like a beep and starts sounding like an instrument. Multiply by an ADSR envelope — attack, decay, sustain, release — and it breathes like one.</p>
+<p>Every demo is the original Python experiment, rebuilt in Web Audio: the same 220 Hz A3, the same six harmonics, the same envelope timings. What changed is that the WAV files are gone — the oscillators run live, and the keyboard at the bottom is the same math with your fingers on it.</p>
+<p>The connection to the rest of the series: a synthesized note is order emerging from addition. Nobody tuned a violin. Somebody stacked sinusoids and the timbre was <em>already there</em>, waiting in the arithmetic.</p>
+</div>
+<div class="nav">
+  <a href="../raytracer/">← Raytracer</a>
+  <a href="../">Unplaced</a>
+  <a href="../ember/">next: Ember →</a>
+</div>
+</div>
+<script>
+(function(){
+// --- Audio context ---
+let AC=null;
+function ac(){if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();return AC;}
+
+// --- Parameters ---
+const $=id=>document.getElementById(id);
+const params={harm:5,atk:0.02,dec:0.15,sus:0.6,rel:0.4};
+[['harm','harm',v=>parseInt(v)],['atk','atk',parseFloat],['dec','dec',parseFloat],['sus','sus',parseFloat],['rel','rel',parseFloat]].forEach(([id,key,fn])=>{
+  $(id).addEventListener('input',e=>{params[key]=fn(e.target.value);$(id+'V').textContent=e.target.value;});
+});
+
+// --- Additive voice: N oscillator harmonics into one gain with ADSR ---
+function voice(freq,dur,opts){
+  opts=opts||{};
+  const nh=opts.harm!==undefined?opts.harm:params.harm;
+  const atk=opts.atk!==undefined?opts.atk:params.atk;
+  const dec=opts.dec!==undefined?opts.dec:params.dec;
+  const sus=opts.sus!==undefined?opts.sus:params.sus;
+  const rel=opts.rel!==undefined?opts.rel:params.rel;
+  const amp=opts.amp!==undefined?opts.amp:0.25;
+  const c=ac(),t0=c.currentTime;
+  const master=c.createGain();master.gain.value=0;master.connect(c.destination);
+  for(let h=1;h<=nh;h++){
+    const o=c.createOscillator();o.type='sine';o.frequency.value=freq*h;
+    const g=c.createGain();g.gain.value=amp/h;
+    o.connect(g);g.connect(master);
+    o.start(t0);o.stop(t0+dur+rel+0.1);
+  }
+  // ADSR
+  const g=master.gain;
+  g.setValueAtTime(0,t0);
+  g.linearRampToValueAtTime(1,t0+atk);
+  g.linearRampToValueAtTime(sus,t0+atk+dec);
+  g.setValueAtTime(sus,t0+Math.max(atk+dec,dur-rel));
+  g.linearRampToValueAtTime(0,t0+Math.max(atk+dec,dur-rel)+rel);
+  return master;
+}
+
+// --- Demos (faithful to synth.py) ---
+function flash(btn){btn.classList.add('on');setTimeout(()=>btn.classList.remove('on'),900);}
+$('d1').onclick=e=>{flash(e.target);voice(220,1.5,{harm:1,amp:0.4});};
+$('d2').onclick=e=>{flash(e.target);voice(220,1.5,{harm:6,amp:0.35,atk:0.001,dec:0.001,sus:1,rel:0.05});};
+$('d3').onclick=e=>{flash(e.target);voice(220,1.5,{harm:6,amp:0.35,atk:0.02,dec:0.15,sus:0.6,rel:0.4});};
+$('d4').onclick=e=>{flash(e.target);[220,261.63,329.63].forEach(f=>voice(f,2,{harm:5,amp:0.22,atk:0.05,dec:0.2,sus:0.5,rel:0.6}));};
+$('d5').onclick=e=>{
+  flash(e.target);
+  const c=ac(),t0=c.currentTime,dur=2;
+  const o=c.createOscillator();o.type='sine';
+  o.frequency.setValueAtTime(100,t0);
+  o.frequency.exponentialRampToValueAtTime(1000,t0+dur);
+  const g=c.createGain();
+  g.gain.setValueAtTime(0,t0);
+  g.gain.linearRampToValueAtTime(0.35,t0+0.1);
+  g.gain.linearRampToValueAtTime(0.25,t0+0.2);
+  g.gain.setValueAtTime(0.25,t0+dur-0.5);
+  g.gain.linearRampToValueAtTime(0,t0+dur);
+  o.connect(g);g.connect(c.destination);o.start(t0);o.stop(t0+dur+0.1);
+};
+$('d6').onclick=e=>{
+  flash(e.target);
+  const c=ac(),t0=c.currentTime,dur=2;
+  [220,224].forEach(f=>{
+    const o=c.createOscillator();o.type='sine';o.frequency.value=f;
+    const g=c.createGain();g.gain.value=0.3;
+    o.connect(g);g.connect(c.destination);o.start(t0);o.stop(t0+dur);
+  });
+};
+
+// --- Keyboard ---
+const WHITE=[['A3',220],['B3',246.94],['C4',261.63],['D4',293.66],['E4',329.63],['F4',349.23],['G4',392],['A4',440],['B4',493.88],['C5',523.25],['D5',587.33],['E5',659.25],['F5',698.46],['G5',783.99]];
+const BLACK=[[0,'A#3',233.08],[1,'C#4',277.18],[2,'D#4',311.13],[4,'F#4',369.99],[5,'G#4',415.3],[6,'A#4',466.16],[8,'C#5',554.37],[9,'D#5',622.25],[11,'F#5',739.99]];
+const kb=$('kb');
+const keyEls={};
+WHITE.forEach(([name,freq],i)=>{
+  const k=document.createElement('div');k.className='key';
+  const lbl=['A','B','C','D','E','F','G','A','B','C','D','E','F','G'][i]+(i<2?3:i<9?4:5);
+  k.innerHTML='<span>'+lbl+'</span>';
+  k.dataset.freq=freq;kb.appendChild(k);keyEls[name]=k;
+  if(BLACK.some(b=>b[0]===i)){
+    const b=BLACK.find(b=>b[0]===i);
+    const bk=document.createElement('div');bk.className='key blk';
+    bk.style.left='calc('+((i+1)/WHITE.length*100)+'% - '+(100/WHITE.length*0.3)+'%)';
+    bk.style.width='calc('+100/WHITE.length*0.6+'%)';
+    bk.innerHTML='<span>#</span>';bk.dataset.freq=b[2];bk.dataset.name=b[1];
+    kb.appendChild(bk);keyEls[b[1]]=bk;
+  }
+});
+const active={};
+function press(el){
+  if(!el||active[el.dataset.name])return;
+  el.classList.add('dn');
+  const nm=el.dataset.name;
+  active[nm]=voice(parseFloat(el.dataset.freq),9999,{});
+}
+function lift(el){
+  if(!el||!active[el.dataset.name])return;
+  el.classList.remove('dn');
+  const c=ac(),nm=el.dataset.name,v=active[nm],t=c.currentTime;
+  v.gain.cancelScheduledValues(t);
+  v.gain.setValueAtTime(v.gain.value,t);
+  v.gain.linearRampToValueAtTime(0,t+params.rel);
+  active[nm]=null;
+}
+kb.addEventListener('pointerdown',e=>{const k=e.target.closest('.key');if(k){press(k);kb.setPointerCapture(e.pointerId);}});
+kb.addEventListener('pointermove',e=>{if(e.buttons){const k=document.elementFromPoint(e.clientX,e.clientY);if(k&&k.classList.contains('key')){Object.values(active).forEach(v=>{});}}});
+window.addEventListener('pointerup',()=>{Object.keys(active).forEach(nm=>lift(keyEls[nm]));});
+const KEYMAP={'a':'A3','w':'A#3','s':'B3','e':'C4','d':'D4','f':'E4','t':'F#4','g':'F4','y':'G#4','h':'G4','u':'A#4','j':'A4','k':'B4','o':'C5','l':'D5','p':'D#5',';':'E5'};
+window.addEventListener('keydown',e=>{
+  const nm=KEYMAP[e.key.toLowerCase()];
+  if(nm&&!e.repeat)press(keyEls[nm]);
+});
+window.addEventListener('keyup',e=>{
+  const nm=KEYMAP[e.key.toLowerCase()];
+  if(nm)lift(keyEls[nm]);
+});
+})();
+</script>
+</body>
+</html>
